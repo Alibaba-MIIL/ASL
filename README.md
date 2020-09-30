@@ -10,7 +10,7 @@ Official PyTorch Implementation
 > Friedman, Matan Protter, Lihi Zelnik-Manor<br/> DAMO Academy, Alibaba
 > Group
 
-Note - Github is still under develop. More contents soon...
+Note - Github page is still under develop. More contents soon...
 
 **Abstract**
 
@@ -48,7 +48,7 @@ The two implementations are:
 The two losses are bit-accurate. However, ``` AsymmetricLossOptimized```
 contains a more optimized (and complicated) way of implementing ASL,
 which minimizes memory allocation gpu uploading, and favors inplace
-operations
+operations.
 
 ## Pretrained Models
 In this [file](MODEL_ZOO.md), we provide pre-trained models on various
