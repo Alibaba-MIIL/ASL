@@ -2,7 +2,7 @@
 
 
 
-[Paper](TBD) | [Pretrained models](MODEL_ZOO.md)
+[Paper](https://arxiv.org/abs/2009.14119) | [Pretrained models](MODEL_ZOO.md)
 
 Official PyTorch Implementation
 
