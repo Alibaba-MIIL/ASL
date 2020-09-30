@@ -76,8 +76,7 @@ which will result in:
 </table>
 </p>
 
-Example run of
-OpenImages model (after downloading the relevant model):
+Example run of OpenImages model:
 ```
 python -m -infer.py  \
 --dataset_type=OpenImages \
