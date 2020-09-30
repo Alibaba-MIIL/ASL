@@ -36,8 +36,8 @@ Official PyTorch Implementation
 > classification and object detection. ASL is effective, easy to
 > implement, and does not increase the training time or complexity
 
-## ASL implementation
-In this [file](\src\loss_functions\losses.py) we provide two
+## ASL Implementation
+In this PyTorch [file](\src\loss_functions\losses.py), we provide two
 implementation of ASL, that can serve as a drop-in replacement for
 standard loss functions (Cross-Entropy and Focal-Loss)
 
@@ -50,9 +50,31 @@ contains a more optimized (and complicated) way of implementing ASL,
 which minimizes memory allocation gpu uploading, and favors inplace
 operations
 
-## Pretrained models
+## Pretrained Models
 In this [file](MODEL_ZOO.md), we provide pre-trained models on various
 datasets. 
+
+## Inference Code
+We provide [inference code](infer.py), that demonstrate how to load our
+model, pre-process an image and do actuall inference. This code can also
+serve as a template for validating our mAP scores. Example run (after
+downloading the relevant model):
+```
+python -m -infer.py  \
+--model_name=tresnet_l \
+--model_path=./models_local/TRresNet_L_448_86.6.pth \
+--pic_path=./pics/000000000885.jpg \
+--input_size=448
+```
+which will result in:
+<p align="center">
+ <table class="tg">
+  <tr>
+    <td class="tg-c3ow"><img src="./pics/example_inference.jpeg" align="center" width="400" ></td>
+  </tr>
+</table>
+</p>
+
 
 ## Citation
 TBD

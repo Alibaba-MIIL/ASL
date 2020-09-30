@@ -3,38 +3,57 @@ from src.helper_functions.helper_functions import validate, create_dataloader
 from src.models import create_model
 import argparse
 
-torch.backends.cudnn.benchmark = True
+import matplotlib
 
-parser = argparse.ArgumentParser(description='ASL MS-COCO Inference')
-parser.add_argument('--val_dir')
-parser.add_argument('--model_path')
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
+from PIL import Image
+import numpy as np
+
+parser = argparse.ArgumentParser(description='ASL MS-COCO Inference on a single image')
+
+parser.add_argument('--model_path', type=str, default='./models_local/TRresNet_L_448_86.6.pth')
+parser.add_argument('--pic_path', type=str, default='./pics/000000000885.jpg')
 parser.add_argument('--model_name', type=str, default='tresnet_l')
-parser.add_argument('--num_classes', type=int, default=81)
 parser.add_argument('--input_size', type=int, default=448)
-parser.add_argument('--batch_size', type=int, default=48)
-parser.add_argument('--num_workers', type=int, default=8)
+parser.add_argument('--th', type=float, default=0.7)
 
 
 def main():
+    print('ASL MS-COCO Example Inference code on a single image')
+
     # parsing args
     args = parser.parse_args()
 
     # setup model
-    print('creating model...')
+    print('creating and loading the model...')
+    state = torch.load(args.model_path, map_location='cpu')
+    args.num_classes = state['num_classes']
     model = create_model(args).cuda()
-    state = torch.load(args.model_path, map_location='cpu')['model']
-    model.load_state_dict(state, strict=True)
+    model.load_state_dict(state['model'], strict=True)
     model.eval()
+    classes_list = np.array(list(state['idx_to_class'].values()))
     print('done\n')
 
-    # setup data loader
-    print('creating data loader...')
-    val_loader = create_dataloader(args)
+    print('loading image and doing inference...')
+    im = Image.open(args.pic_path)
+    im_resize = im.resize((args.input_size, args.input_size))
+    np_img = np.array(im_resize, dtype=np.uint8)
+    tensor_img = torch.from_numpy(np_img).permute(2, 0, 1).float() / 255.0  # HWC to CHW
+    tensor_batch = torch.unsqueeze(tensor_img, 0).cuda()
+    output = torch.squeeze(torch.sigmoid(model(tensor_batch)))
+    np_output = output.cpu().detach().numpy()
+    detected_classes = classes_list[np_output > args.th]
     print('done\n')
 
-    print('doing validation...')
-    map_score, _ = validate(model, val_loader)
-    print("Validation mAP score: {:.2f}".format(map_score.avg))
+    print('showing image on screen...')
+    fig = plt.figure()
+    plt.imshow(im)
+    plt.axis('off')
+    plt.axis('tight')
+    plt.title("detected classes: {}".format(detected_classes))
+    plt.show()
+    print('done\n')
 
 
 if __name__ == '__main__':
