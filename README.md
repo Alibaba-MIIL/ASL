@@ -44,7 +44,7 @@ Note - Github page is still under develop. More content soon...
 </table>
 </p>
 
-## ASL Implementation
+## Asymmetric Loss (ASL) Implementation
 In this PyTorch [file](\src\loss_functions\losses.py), we provide two
 implementations of our new loss function, ASL, that can serve as a
 drop-in replacement for standard loss functions (Cross-Entropy and
