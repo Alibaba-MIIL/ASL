@@ -10,7 +10,7 @@ Official PyTorch Implementation
 > Friedman, Matan Protter, Lihi Zelnik-Manor<br/> DAMO Academy, Alibaba
 > Group
 
-Note - Github page is still under develop. More contents soon...
+Note - Github page is still under develop. More content soon...
 
 **Abstract**
 
