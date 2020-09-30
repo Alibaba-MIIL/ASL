@@ -57,10 +57,11 @@ datasets.
 ## Inference Code
 We provide [inference code](infer.py), that demonstrate how to load our
 model, pre-process an image and do actuall inference. This code can also
-serve as a template for validating our mAP scores. Example run (after
-downloading the relevant model):
+serve as a template for validating our mAP scores. Example run of
+MS-COCO model (after downloading the relevant model):
 ```
 python -m -infer.py  \
+--dataset_type=MS-COCO \
 --model_name=tresnet_l \
 --model_path=./models_local/TRresNet_L_448_86.6.pth \
 --pic_path=./pics/000000000885.jpg \
@@ -70,15 +71,31 @@ which will result in:
 <p align="center">
  <table class="tg">
   <tr>
-    <td class="tg-c3ow"><img src="./pics/example_inference.jpeg" align="center" width="400" ></td>
+    <td class="tg-c3ow"><img src="./pics/example_inference.jpeg" align="center" width="600" ></td>
   </tr>
 </table>
 </p>
 
+Example run of
+OpenImages model (after downloading the relevant model):
+```
+python -m -infer.py  \
+--dataset_type=OpenImages \
+--model_name=tresnet_l \
+--model_path=./models_local/Open_ImagesV6_TRresNet_L_448.pth \
+--pic_path=./pics/000000000885.jpg \
+--input_size=448
+```
+<p align="center">
+ <table class="tg">
+  <tr>
+    <td class="tg-c3ow"><img src="./pics/example_inference_open_images.jpeg" align="center" width="600" ></td>
+  </tr>
+</table>
+</p>
 
 ## Citation
 
-```
 @misc{benbaruch2020asymmetric,
     title={Asymmetric Loss For Multi-Label Classification},
     author={manuel Ben-Baruch and Tal Ridnik and Nadav Zamir and Asaf Noy and Itamar Friedman and Matan Protter and Lihi Zelnik-Manor},

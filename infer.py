@@ -1,5 +1,5 @@
 import torch
-from src.helper_functions.helper_functions import validate, create_dataloader
+from src.helper_functions.helper_functions import parse_args
 from src.models import create_model
 import argparse
 
@@ -16,14 +16,15 @@ parser.add_argument('--model_path', type=str, default='./models_local/TRresNet_L
 parser.add_argument('--pic_path', type=str, default='./pics/000000000885.jpg')
 parser.add_argument('--model_name', type=str, default='tresnet_l')
 parser.add_argument('--input_size', type=int, default=448)
-parser.add_argument('--th', type=float, default=0.7)
+parser.add_argument('--dataset_type', type=str, default='MS-COCO')
+parser.add_argument('--th', type=float, default=None)
 
 
 def main():
-    print('ASL MS-COCO Example Inference code on a single image')
+    print('ASL Example Inference code on a single image')
 
     # parsing args
-    args = parser.parse_args()
+    args = parse_args(parser)
 
     # setup model
     print('creating and loading the model...')
@@ -51,7 +52,10 @@ def main():
     plt.imshow(im)
     plt.axis('off')
     plt.axis('tight')
+    # plt.rcParams["axes.titlesize"] = 10
     plt.title("detected classes: {}".format(detected_classes))
+
+
     plt.show()
     print('done\n')
 
