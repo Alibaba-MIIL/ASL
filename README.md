@@ -94,15 +94,14 @@ python -m -infer.py  \
 </p>
 
 ## Citation
-
-@misc{benbaruch2020asymmetric,
-    title={Asymmetric Loss For Multi-Label Classification},
-    author={manuel Ben-Baruch and Tal Ridnik and Nadav Zamir and Asaf Noy and Itamar Friedman and Matan Protter and Lihi Zelnik-Manor},
-    year={2020},
-    eprint={2009.14119},
-    archivePrefix={arXiv},
-    primaryClass={cs.CV}
-}
+```
+ @misc{benbaruch2020asymmetric, 
+        title={Asymmetric Loss For Multi-Label Classification}, 
+        author={manuel Ben-Baruch and Tal Ridnik and Nadav Zamir and Asaf Noy and Itamar Friedman and Matan Protter and Lihi Zelnik-Manor}, 
+        year={2020}, 
+        eprint={2009.14119},
+        archivePrefix={arXiv}, 
+        primaryClass={cs.CV} }
 ```
 
 ## Contact
