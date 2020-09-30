@@ -6,7 +6,22 @@ from src.models.tresnet.layers.anti_aliasing import AntiAliasDownsampleLayer
 from .layers.avg_pool import FastAvgPool2d
 from .layers.general_layers import SEModule, SpaceToDepthModule
 from inplace_abn import InPlaceABN
+
+
 # from inplace_abn import ABN
+
+class bottleneck_head(nn.Module):
+    def __init__(self, num_features, num_classes, bottleneck_features=200):
+        super(bottleneck_head, self).__init__()
+        self.embedding_generator = nn.ModuleList()
+        self.embedding_generator.append(nn.Linear(num_features, bottleneck_features))
+        self.embedding_generator = nn.Sequential(*self.embedding_generator)
+        self.FC = nn.Linear(bottleneck_features, num_classes)
+
+    def forward(self, x):
+        self.embedding = self.embedding_generator(x)
+        logits = self.FC(self.embedding)
+        return logits
 
 
 def conv2d(ni, nf, stride):
@@ -112,7 +127,8 @@ class Bottleneck(Module):
 
 class TResNet(Module):
 
-    def __init__(self, layers, in_chans=3, num_classes=1000, width_factor=1.0):
+    def __init__(self, layers, in_chans=3, num_classes=1000, width_factor=1.0,
+                 do_bottleneck_head=False,bottleneck_features=512):
         super(TResNet, self).__init__()
 
         # JIT layers
@@ -146,7 +162,12 @@ class TResNet(Module):
         self.embeddings = []
         self.global_pool = nn.Sequential(OrderedDict([('global_pool_layer', global_pool_layer)]))
         self.num_features = (self.planes * 8) * Bottleneck.expansion
-        fc = nn.Linear(self.num_features, num_classes)
+        if do_bottleneck_head:
+            fc = bottleneck_head(self.num_features, num_classes,
+                                 bottleneck_features=bottleneck_features)
+        else:
+            fc = nn.Linear(self.num_features , num_classes)
+
         self.head = nn.Sequential(OrderedDict([('fc', fc)]))
 
         # model initilization
@@ -205,7 +226,9 @@ def TResnetL(model_params):
     """
     in_chans = 3
     num_classes = model_params['num_classes']
-    model = TResNet(layers=[4, 5, 18, 3], num_classes=num_classes, in_chans=in_chans, width_factor=1.2)
+    do_bottleneck_head = model_params['args'].do_bottleneck_head
+    model = TResNet(layers=[4, 5, 18, 3], num_classes=num_classes, in_chans=in_chans, width_factor=1.2,
+                    do_bottleneck_head=do_bottleneck_head)
     return model
 
 
