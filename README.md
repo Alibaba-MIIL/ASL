@@ -36,10 +36,19 @@ Note - Github page is still under develop. More content soon...
 > classification and object detection. ASL is effective, easy to
 > implement, and does not increase the training time or complexity
 
+<p align="center">
+ <table class="tg">
+  <tr>
+    <td class="tg-c3ow"><img src="./pics/ASL_comparison.png" align="center" width="400" ></td>
+  </tr>
+</table>
+</p>
+
 ## ASL Implementation
 In this PyTorch [file](\src\loss_functions\losses.py), we provide two
-implementation of ASL, that can serve as a drop-in replacement for
-standard loss functions (Cross-Entropy and Focal-Loss)
+implementations of our new loss function, ASL, that can serve as a
+drop-in replacement for standard loss functions (Cross-Entropy and
+Focal-Loss)
 
 The two implementations are: 
 - ```class AsymmetricLoss(nn.Module)```
@@ -47,12 +56,12 @@ The two implementations are:
 
 The two losses are bit-accurate. However, ``` AsymmetricLossOptimized```
 contains a more optimized (and complicated) way of implementing ASL,
-which minimizes memory allocation gpu uploading, and favors inplace
+which minimizes memory allocations, gpu uploading, and favors inplace
 operations.
 
 ## Pretrained Models
-In this [file](MODEL_ZOO.md), we provide pre-trained models on various
-datasets. 
+In this [link](MODEL_ZOO.md), we provide pre-trained models on various
+dataset. 
 
 ## Inference Code
 We provide [inference code](infer.py), that demonstrate how to load our
