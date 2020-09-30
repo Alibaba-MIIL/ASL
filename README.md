@@ -10,7 +10,7 @@ Official PyTorch Implementation
 > Friedman, Matan Protter, Lihi Zelnik-Manor<br/> DAMO Academy, Alibaba
 > Group
 
-
+Note - Github is still under develop. More contents soon...
 
 **Abstract**
 
@@ -77,13 +77,13 @@ which will result in:
 
 
 ## Citation
-TBD
+
 ```
-@misc{TBD,
+@misc{benbaruch2020asymmetric,
     title={Asymmetric Loss For Multi-Label Classification},
-    author={TBD},
+    author={manuel Ben-Baruch and Tal Ridnik and Nadav Zamir and Asaf Noy and Itamar Friedman and Matan Protter and Lihi Zelnik-Manor},
     year={2020},
-    eprint={TBD},
+    eprint={2009.14119},
     archivePrefix={arXiv},
     primaryClass={cs.CV}
 }
