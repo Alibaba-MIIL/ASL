@@ -2,6 +2,8 @@ import torch
 from src.helper_functions.helper_functions import parse_args
 from src.models import create_model
 import argparse
+import numpy as np
+from PIL import Image
 
 import matplotlib
 
