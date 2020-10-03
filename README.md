@@ -72,7 +72,7 @@ model, pre-process an image and do actuall inference. This code can also
 serve as a template for validating our mAP scores. Example run of
 MS-COCO model (after downloading the relevant model):
 ```
-python -m -infer.py  \
+python infer.py  \
 --dataset_type=MS-COCO \
 --model_name=tresnet_l \
 --model_path=./models_local/MS_COCO_TRresNet_L_448_86.6.pth \
@@ -90,7 +90,7 @@ which will result in:
 
 Example run of OpenImages model:
 ```
-python -m -infer.py  \
+python infer.py  \
 --dataset_type=OpenImages \
 --model_name=tresnet_l \
 --model_path=./models_local/Open_ImagesV6_TRresNet_L_448.pth \
