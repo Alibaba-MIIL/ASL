@@ -1,7 +1,9 @@
 # Asymmetric Loss For Multi-Label Classification
 
-
-
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/asymmetric-loss-for-multi-label/multi-label-classification-on-ms-coco)](https://paperswithcode.com/sota/multi-label-classification-on-ms-coco?p=asymmetric-loss-for-multi-label)<br>
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/asymmetric-loss-for-multi-label/multi-label-classification-on-nus-wide)](https://paperswithcode.com/sota/multi-label-classification-on-nus-wide?p=asymmetric-loss-for-multi-label)<br>
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/asymmetric-loss-for-multi-label/multi-label-classification-on-pascal-voc-2007)](https://paperswithcode.com/sota/multi-label-classification-on-pascal-voc-2007?p=asymmetric-loss-for-multi-label)<br>
+<br>
 [Paper](https://arxiv.org/abs/2009.14119) | [Pretrained models](MODEL_ZOO.md)
 
 Official PyTorch Implementation
@@ -11,6 +13,7 @@ Official PyTorch Implementation
 > Group
 
 Note - Github page is still under develop. More content soon...
+
 
 **Abstract**
 
