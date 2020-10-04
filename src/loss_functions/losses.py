@@ -71,7 +71,7 @@ class AsymmetricLossOptimized(nn.Module):
         x: input logits
         y: targets (1-hot vector)
         """
-        
+
         self.targets = y
         self.anti_targets = 1 - y
 
