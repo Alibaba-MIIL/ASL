@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class AsymmetricLoss(nn.Module):
     def __init__(self, gamma_neg=4, gamma_pos=1, clip=0.05, disable_torch_grad_focal_loss=False):
         super(AsymmetricLoss, self).__init__()
@@ -11,6 +12,13 @@ class AsymmetricLoss(nn.Module):
         self.disable_torch_grad_focal_loss = disable_torch_grad_focal_loss
 
     def forward(self, x, y):
+        """"
+        Parameters
+        ----------
+        x: input logits
+        y: targets (1-hot vector)
+        """
+
         # Calculating Probabilities
         x_sigmoid = torch.sigmoid(x)
         xs_pos = x_sigmoid
@@ -40,6 +48,7 @@ class AsymmetricLoss(nn.Module):
 
         return -loss.sum()
 
+
 class AsymmetricLossOptimized(nn.Module):
     ''' Notice - optimized version, minimizes memory allocation and gpu uploading,
     favors inplace operations'''
@@ -55,9 +64,19 @@ class AsymmetricLossOptimized(nn.Module):
         # prevent memory allocation and gpu uploading every iteration, and encourages inplace operations
         self.targets = self.anti_targets = self.xs_pos = self.xs_neg = self.asymmetric_w = self.loss = None
 
-    def forward(self, logits, targets):
+    def forward(self, x, y):
+        """"
+        Parameters
+        ----------
+        x: input logits
+        y: targets (1-hot vector)
+        """
+        
+        self.targets = y
+        self.anti_targets = 1 - y
+
         # Calculating Probabilities
-        self.xs_pos = torch.sigmoid(logits)
+        self.xs_pos = torch.sigmoid(x)
         self.xs_neg = 1.0 - self.xs_pos
 
         # Asymmetric Clipping

@@ -1,5 +1,6 @@
 import torch
 from src.helper_functions.helper_functions import parse_args
+from src.loss_functions.losses import AsymmetricLoss, AsymmetricLossOptimized
 from src.models import create_model
 import argparse
 import numpy as np
@@ -49,6 +50,17 @@ def main():
     detected_classes = classes_list[np_output > args.th]
     print('done\n')
 
+    # example loss calculation
+    output = model(tensor_batch)
+    loss_func1 = AsymmetricLoss()
+    loss_func2 = AsymmetricLossOptimized()
+    target = output.clone()
+    target[output < 0] = 0
+    target[output >= 0] = 1
+    loss1 = loss_func1(output, target)
+    loss2 = loss_func2(output, target)
+    assert abs((loss1.item()-loss2.item()))<1e-6
+
     print('showing image on screen...')
     fig = plt.figure()
     plt.imshow(im)
@@ -56,7 +68,6 @@ def main():
     plt.axis('tight')
     # plt.rcParams["axes.titlesize"] = 10
     plt.title("detected classes: {}".format(detected_classes))
-
 
     plt.show()
     print('done\n')
