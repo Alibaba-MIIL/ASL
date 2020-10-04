@@ -39,6 +39,7 @@ def main():
     classes_list = np.array(list(state['idx_to_class'].values()))
     print('done\n')
 
+    # doing inference
     print('loading image and doing inference...')
     im = Image.open(args.pic_path)
     im_resize = im.resize((args.input_size, args.input_size))
@@ -55,12 +56,13 @@ def main():
     loss_func1 = AsymmetricLoss()
     loss_func2 = AsymmetricLossOptimized()
     target = output.clone()
-    target[output < 0] = 0
+    target[output < 0] = 0  # mockup target
     target[output >= 0] = 1
     loss1 = loss_func1(output, target)
     loss2 = loss_func2(output, target)
-    assert abs((loss1.item()-loss2.item()))<1e-6
+    assert abs((loss1.item() - loss2.item())) < 1e-6
 
+    # displaying image
     print('showing image on screen...')
     fig = plt.figure()
     plt.imshow(im)
