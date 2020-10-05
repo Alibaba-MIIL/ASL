@@ -3,13 +3,14 @@ import torch.nn as nn
 
 
 class AsymmetricLoss(nn.Module):
-    def __init__(self, gamma_neg=4, gamma_pos=1, clip=0.05, disable_torch_grad_focal_loss=False):
+    def __init__(self, gamma_neg=4, gamma_pos=1, clip=0.05, eps=1e-8, disable_torch_grad_focal_loss=False):
         super(AsymmetricLoss, self).__init__()
 
         self.gamma_neg = gamma_neg
         self.gamma_pos = gamma_pos
         self.clip = clip
         self.disable_torch_grad_focal_loss = disable_torch_grad_focal_loss
+        self.eps = eps
 
     def forward(self, x, y):
         """"
@@ -29,8 +30,8 @@ class AsymmetricLoss(nn.Module):
             xs_neg = (xs_neg + self.clip).clamp(max=1)
 
         # Basic CE calculation
-        los_pos = y * torch.log(xs_pos)
-        los_neg = (1 - y) * torch.log(xs_neg)
+        los_pos = y * torch.log(xs_pos.clamp(min=self.eps))
+        los_neg = (1 - y) * torch.log(xs_neg.clamp(min=self.eps))
         loss = los_pos + los_neg
 
         # Asymmetric Focusing
@@ -53,13 +54,14 @@ class AsymmetricLossOptimized(nn.Module):
     ''' Notice - optimized version, minimizes memory allocation and gpu uploading,
     favors inplace operations'''
 
-    def __init__(self, gamma_neg=4, gamma_pos=1, clip=0.05, disable_torch_grad_focal_loss=False):
+    def __init__(self, gamma_neg=4, gamma_pos=1, clip=0.05, eps=1e-8, disable_torch_grad_focal_loss=False):
         super(AsymmetricLossOptimized, self).__init__()
 
         self.gamma_neg = gamma_neg
         self.gamma_pos = gamma_pos
         self.clip = clip
         self.disable_torch_grad_focal_loss = disable_torch_grad_focal_loss
+        self.eps = eps
 
         # prevent memory allocation and gpu uploading every iteration, and encourages inplace operations
         self.targets = self.anti_targets = self.xs_pos = self.xs_neg = self.asymmetric_w = self.loss = None
@@ -84,8 +86,8 @@ class AsymmetricLossOptimized(nn.Module):
             self.xs_neg.add_(self.clip).clamp_(max=1)
 
         # Basic CE calculation
-        self.loss = self.targets * torch.log(self.xs_pos)
-        self.loss.add_(self.anti_targets * torch.log(self.xs_neg))
+        self.loss = self.targets * torch.log(self.xs_pos.clamp(min=self.eps))
+        self.loss.add_(self.anti_targets * torch.log(self.xs_neg.clamp(min=self.eps)))
 
         # Asymmetric Focusing
         if self.gamma_neg > 0 or self.gamma_pos > 0:
