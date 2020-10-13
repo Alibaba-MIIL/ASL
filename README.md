@@ -58,19 +58,24 @@ Note - Github page is still under develop. More content soon...
 </p>
 
 ## Asymmetric Loss (ASL) Implementation
-In this PyTorch [file](\src\loss_functions\losses.py), we provide two
+In this PyTorch [file](\src\loss_functions\losses.py), we provide 
 implementations of our new loss function, ASL, that can serve as a
 drop-in replacement for standard loss functions (Cross-Entropy and
 Focal-Loss)
 
-The two implementations are: 
+For the multi-label case (sigmoids), the two implementations are: 
 - ```class AsymmetricLoss(nn.Module)```
 - ```class AsymmetricLossOptimized(nn.Module)``` <br>
 
-The two losses are bit-accurate. However, ``` AsymmetricLossOptimized```
+The two losses are bit-accurate. However, AsymmetricLossOptimized()
 contains a more optimized (and complicated) way of implementing ASL,
 which minimizes memory allocations, gpu uploading, and favors inplace
 operations.
+
+For the single-label case (softmax), the implementations is called:
+- ```class ASLSingleLabel(nn.Module)```
+
+
 
 ## Pretrained Models
 In this [link](MODEL_ZOO.md), we provide pre-trained models on various
