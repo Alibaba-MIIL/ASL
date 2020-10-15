@@ -17,7 +17,7 @@ class AsymmetricLoss(nn.Module):
         Parameters
         ----------
         x: input logits
-        y: targets (multi-label binalized vector)
+        y: targets (multi-label binarized vector)
         """
 
         # Calculating Probabilities
@@ -71,7 +71,7 @@ class AsymmetricLossOptimized(nn.Module):
         Parameters
         ----------
         x: input logits
-        y: targets (multi-label binalized vector)
+        y: targets (multi-label binarized vector)
         """
 
         self.targets = y
