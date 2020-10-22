@@ -88,7 +88,7 @@ validation code that repdroduces the article results on MS-COCO:
 ```
 python validate.py  \
 --model_name=tresnet_l \
---model_path=./models_local/TRresNet_L_448_86.6.pth
+--model_path=./models_local/MS_COCO_TRresNet_L_448_86.6.pth
 ```
 
 ## Inference Code
