@@ -81,10 +81,19 @@ For the single-label case (softmax), the implementations is called:
 In this [link](MODEL_ZOO.md), we provide pre-trained models on various
 dataset. 
 
+## Validation Code
+Thanks to external contribution of @hellbell, we now provide a
+validation code that repdroduces the article results on MS-COCO:
+
+```
+python validate.py  \
+--model_name=tresnet_l \
+--model_path=./models_local/TRresNet_L_448_86.6.pth
+```
+
 ## Inference Code
 We provide [inference code](infer.py), that demonstrate how to load our
-model, pre-process an image and do actuall inference. This code can also
-serve as a template for validating our mAP scores. Example run of
+model, pre-process an image and do actuall inference. Example run of
 MS-COCO model (after downloading the relevant model):
 ```
 python infer.py  \
@@ -119,6 +128,7 @@ python infer.py  \
   </tr>
 </table>
 </p>
+
 
 ## Citation
 ```
