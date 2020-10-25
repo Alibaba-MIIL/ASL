@@ -79,8 +79,8 @@ def validate_multi(val_loader, model, args):
 
     end = time.time()
     tp, fp, fn, tn, count = 0, 0, 0, 0, 0
-    preds=[]
-    targets=[]
+    preds = []
+    targets = []
     for i, (input, target) in enumerate(val_loader):
         target = target
         target = target.max(dim=1)[0]
@@ -88,8 +88,10 @@ def validate_multi(val_loader, model, args):
         with torch.no_grad():
             output = Sig(model(input.cuda())).cpu()
 
-        preds.append(target.cpu())
-        targets.append(output.cpu())
+        # for mAP calculation
+        preds.append(output.cpu())
+        targets.append(target.cpu())
+
         # measure accuracy and record loss
         pred = output.data.gt(args.thre).long()
 
@@ -149,7 +151,7 @@ def validate_multi(val_loader, model, args):
     print(' * P_C {:.2f} R_C {:.2f} F_C {:.2f} P_O {:.2f} R_O {:.2f} F_O {:.2f}'
           .format(mean_p_c, mean_r_c, mean_f_c, p_o, r_o, f_o))
 
-    mAP_score = mAP(torch.cat(preds).numpy(), torch.cat(targets).numpy())
+    mAP_score = mAP(torch.cat(targets).numpy(), torch.cat(preds).numpy())
     print("mAP score:", mAP_score)
 
     return
