@@ -12,6 +12,15 @@ from inplace_abn import InPlaceABN
 
 class bottleneck_head(nn.Module):
     def __init__(self, num_features, num_classes, bottleneck_features=200):
+        """
+        Initialize the graph.
+
+        Args:
+            self: (todo): write your description
+            num_features: (int): write your description
+            num_classes: (int): write your description
+            bottleneck_features: (todo): write your description
+        """
         super(bottleneck_head, self).__init__()
         self.embedding_generator = nn.ModuleList()
         self.embedding_generator.append(nn.Linear(num_features, bottleneck_features))
@@ -19,12 +28,27 @@ class bottleneck_head(nn.Module):
         self.FC = nn.Linear(bottleneck_features, num_classes)
 
     def forward(self, x):
+        """
+        Forward function.
+
+        Args:
+            self: (todo): write your description
+            x: (todo): write your description
+        """
         self.embedding = self.embedding_generator(x)
         logits = self.FC(self.embedding)
         return logits
 
 
 def conv2d(ni, nf, stride):
+    """
+    Conv2d layer.
+
+    Args:
+        ni: (int): write your description
+        nf: (int): write your description
+        stride: (int): write your description
+    """
     return nn.Sequential(
         nn.Conv2d(ni, nf, kernel_size=3, stride=stride, padding=1, bias=False),
         nn.BatchNorm2d(nf),
@@ -33,6 +57,18 @@ def conv2d(ni, nf, stride):
 
 
 def conv2d_ABN(ni, nf, stride, activation="leaky_relu", kernel_size=3, activation_param=1e-2, groups=1):
+    """
+    Conv2d layer.
+
+    Args:
+        ni: (todo): write your description
+        nf: (todo): write your description
+        stride: (int): write your description
+        activation: (todo): write your description
+        kernel_size: (int): write your description
+        activation_param: (todo): write your description
+        groups: (array): write your description
+    """
     return nn.Sequential(
         nn.Conv2d(ni, nf, kernel_size=kernel_size, stride=stride, padding=kernel_size // 2, groups=groups,
                   bias=False),
@@ -44,6 +80,18 @@ class BasicBlock(Module):
     expansion = 1
 
     def __init__(self, inplanes, planes, stride=1, downsample=None, use_se=True, anti_alias_layer=None):
+        """
+        Initialize the network.
+
+        Args:
+            self: (todo): write your description
+            inplanes: (todo): write your description
+            planes: (todo): write your description
+            stride: (int): write your description
+            downsample: (todo): write your description
+            use_se: (bool): write your description
+            anti_alias_layer: (todo): write your description
+        """
         super(BasicBlock, self).__init__()
         if stride == 1:
             self.conv1 = conv2d_ABN(inplanes, planes, stride=1, activation_param=1e-3)
@@ -62,6 +110,13 @@ class BasicBlock(Module):
         self.se = SEModule(planes * self.expansion, reduce_layer_planes) if use_se else None
 
     def forward(self, x):
+        """
+        Forward computation.
+
+        Args:
+            self: (todo): write your description
+            x: (todo): write your description
+        """
         if self.downsample is not None:
             residual = self.downsample(x)
         else:
@@ -83,6 +138,18 @@ class Bottleneck(Module):
     expansion = 4
 
     def __init__(self, inplanes, planes, stride=1, downsample=None, use_se=True, anti_alias_layer=None):
+        """
+        Initialize the network.
+
+        Args:
+            self: (todo): write your description
+            inplanes: (todo): write your description
+            planes: (todo): write your description
+            stride: (int): write your description
+            downsample: (todo): write your description
+            use_se: (bool): write your description
+            anti_alias_layer: (todo): write your description
+        """
         super(Bottleneck, self).__init__()
         self.conv1 = conv2d_ABN(inplanes, planes, kernel_size=1, stride=1, activation="leaky_relu",
                                 activation_param=1e-3)
@@ -109,6 +176,13 @@ class Bottleneck(Module):
         self.se = SEModule(planes, reduce_layer_planes) if use_se else None
 
     def forward(self, x):
+        """
+        Forward computation.
+
+        Args:
+            self: (todo): write your description
+            x: (todo): write your description
+        """
         if self.downsample is not None:
             residual = self.downsample(x)
         else:
@@ -129,6 +203,18 @@ class TResNet(Module):
 
     def __init__(self, layers, in_chans=3, num_classes=1000, width_factor=1.0,
                  do_bottleneck_head=False,bottleneck_features=512):
+        """
+        Initialize layers.
+
+        Args:
+            self: (todo): write your description
+            layers: (list): write your description
+            in_chans: (int): write your description
+            num_classes: (int): write your description
+            width_factor: (float): write your description
+            do_bottleneck_head: (todo): write your description
+            bottleneck_features: (todo): write your description
+        """
         super(TResNet, self).__init__()
 
         # JIT layers
@@ -187,6 +273,18 @@ class TResNet(Module):
             if isinstance(m, nn.Linear): m.weight.data.normal_(0, 0.01)
 
     def _make_layer(self, block, planes, blocks, stride=1, use_se=True, anti_alias_layer=None):
+        """
+        Make a layer.
+
+        Args:
+            self: (todo): write your description
+            block: (todo): write your description
+            planes: (todo): write your description
+            blocks: (todo): write your description
+            stride: (int): write your description
+            use_se: (bool): write your description
+            anti_alias_layer: (todo): write your description
+        """
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
             layers = []
@@ -206,6 +304,13 @@ class TResNet(Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
+        """
+        Perform of the graph.
+
+        Args:
+            self: (todo): write your description
+            x: (todo): write your description
+        """
         x = self.body(x)
         self.embeddings = self.global_pool(x)
         logits = self.head(self.embeddings)

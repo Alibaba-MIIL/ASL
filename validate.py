@@ -32,6 +32,11 @@ parser.add_argument('--print-freq', '-p', default=64, type=int,
 
 
 def main():
+    """
+    Main function.
+
+    Args:
+    """
     args = parser.parse_args()
     args.batch_size = args.batch_size
 
@@ -69,6 +74,13 @@ def main():
 
 
 def validate_multi(val_loader, model, args):
+    """
+    Evaluate validation.
+
+    Args:
+        val_loader: (todo): write your description
+        model: (str): write your description
+    """
     print("starting actuall validation")
     batch_time = AverageMeter()
     prec = AverageMeter()

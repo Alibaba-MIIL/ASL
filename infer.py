@@ -24,6 +24,11 @@ parser.add_argument('--th', type=float, default=None)
 
 
 def main():
+    """
+    Main function.
+
+    Args:
+    """
     print('ASL Example Inference code on a single image')
 
     # parsing args

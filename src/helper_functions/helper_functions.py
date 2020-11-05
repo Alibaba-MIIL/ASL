@@ -6,6 +6,12 @@ from torchvision import datasets as datasets
 import torch
 
 def parse_args(parser):
+    """
+    Parse command line arguments.
+
+    Args:
+        parser: (todo): write your description
+    """
     # parsing args
     args = parser.parse_args()
     if args.dataset_type == 'MS-COCO':
@@ -24,6 +30,13 @@ def parse_args(parser):
 
 
 def average_precision(output, target):
+    """
+    Calculate the precision.
+
+    Args:
+        output: (str): write your description
+        target: (todo): write your description
+    """
     epsilon = 1e-8
 
     # sort examples
@@ -64,6 +77,12 @@ def mAP(targs, preds):
 
 class AverageMeter(object):
     def __init__(self):
+        """
+        Initialize the simulation.
+
+        Args:
+            self: (todo): write your description
+        """
         self.val = None
         self.sum = None
         self.cnt = None
@@ -72,12 +91,28 @@ class AverageMeter(object):
         self.initialized = False
 
     def update(self, val, n=1):
+        """
+        Update the value of val.
+
+        Args:
+            self: (todo): write your description
+            val: (float): write your description
+            n: (array): write your description
+        """
         if not self.initialized:
             self.initialize(val, n)
         else:
             self.add(val, n)
 
     def initialize(self, val, n):
+        """
+        Initialize the value
+
+        Args:
+            self: (todo): write your description
+            val: (array): write your description
+            n: (array): write your description
+        """
         self.val = val
         self.sum = val * n
         self.cnt = n
@@ -86,6 +121,14 @@ class AverageMeter(object):
         self.initialized = True
 
     def add(self, val, n):
+        """
+        Add a value to n.
+
+        Args:
+            self: (todo): write your description
+            val: (int): write your description
+            n: (int): write your description
+        """
         self.val = val
         self.sum += val * n
         self.cnt += n
@@ -95,6 +138,16 @@ class AverageMeter(object):
 
 class CocoDetection(datasets.coco.CocoDetection):
     def __init__(self, root, annFile, transform=None, target_transform=None):
+        """
+        Initialize an image file.
+
+        Args:
+            self: (todo): write your description
+            root: (str): write your description
+            annFile: (str): write your description
+            transform: (str): write your description
+            target_transform: (todo): write your description
+        """
         from pycocotools.coco import COCO
         self.root = root
         self.coco = COCO(annFile)
@@ -108,6 +161,13 @@ class CocoDetection(datasets.coco.CocoDetection):
         # print(self.cat2cat)
 
     def __getitem__(self, index):
+        """
+        Retrieves the image for an index.
+
+        Args:
+            self: (todo): write your description
+            index: (int): write your description
+        """
         coco = self.coco
         img_id = self.ids[index]
         ann_ids = coco.getAnnIds(imgIds=img_id)
