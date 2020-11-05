@@ -4,6 +4,17 @@ import torch.nn as nn
 
 class AsymmetricLoss(nn.Module):
     def __init__(self, gamma_neg=4, gamma_pos=1, clip=0.05, eps=1e-8, disable_torch_grad_focal_loss=False):
+        """
+        Initialize the loss.
+
+        Args:
+            self: (todo): write your description
+            gamma_neg: (float): write your description
+            gamma_pos: (float): write your description
+            clip: (str): write your description
+            eps: (float): write your description
+            disable_torch_grad_focal_loss: (todo): write your description
+        """
         super(AsymmetricLoss, self).__init__()
 
         self.gamma_neg = gamma_neg
@@ -55,6 +66,17 @@ class AsymmetricLossOptimized(nn.Module):
     favors inplace operations'''
 
     def __init__(self, gamma_neg=4, gamma_pos=1, clip=0.05, eps=1e-8, disable_torch_grad_focal_loss=False):
+        """
+        Initialize the loss.
+
+        Args:
+            self: (todo): write your description
+            gamma_neg: (float): write your description
+            gamma_pos: (float): write your description
+            clip: (str): write your description
+            eps: (float): write your description
+            disable_torch_grad_focal_loss: (todo): write your description
+        """
         super(AsymmetricLossOptimized, self).__init__()
 
         self.gamma_neg = gamma_neg
@@ -106,6 +128,16 @@ class AsymmetricLossOptimized(nn.Module):
 
 class ASLSingleLabel(nn.Module):
     def __init__(self, gamma_pos=0, gamma_neg=4, eps: float = 0.1, reduction='mean'):
+        """
+        Initialize the graph.
+
+        Args:
+            self: (todo): write your description
+            gamma_pos: (float): write your description
+            gamma_neg: (float): write your description
+            eps: (float): write your description
+            reduction: (todo): write your description
+        """
         super(ASLSingleLabel, self).__init__()
 
         self.eps = eps
@@ -116,6 +148,15 @@ class ASLSingleLabel(nn.Module):
         self.reduction = reduction
 
     def forward(self, inputs, target, reduction=None):
+        """
+        Forward computation.
+
+        Args:
+            self: (todo): write your description
+            inputs: (todo): write your description
+            target: (todo): write your description
+            reduction: (todo): write your description
+        """
         num_classes = inputs.size()[-1]
         log_preds = self.logsoftmax(inputs)
         self.targets_classes = torch.zeros_like(inputs).scatter_(1, target.long().unsqueeze(1), 1)
