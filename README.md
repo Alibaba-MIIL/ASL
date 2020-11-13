@@ -12,9 +12,6 @@ Official PyTorch Implementation
 > Friedman, Matan Protter, Lihi Zelnik-Manor<br/> DAMO Academy, Alibaba
 > Group
 
-Note - Github page is still under develop. More content soon...
-
-
 **Abstract**
 
 > Pictures of everyday life are inherently multi-label in nature. Hence,
