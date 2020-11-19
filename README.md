@@ -3,8 +3,8 @@
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/asymmetric-loss-for-multi-label/multi-label-classification-on-ms-coco)](https://paperswithcode.com/sota/multi-label-classification-on-ms-coco?p=asymmetric-loss-for-multi-label)<br>
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/asymmetric-loss-for-multi-label/multi-label-classification-on-nus-wide)](https://paperswithcode.com/sota/multi-label-classification-on-nus-wide?p=asymmetric-loss-for-multi-label)<br>
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/asymmetric-loss-for-multi-label/multi-label-classification-on-pascal-voc-2007)](https://paperswithcode.com/sota/multi-label-classification-on-pascal-voc-2007?p=asymmetric-loss-for-multi-label)<br>
-<br>
-[Paper](https://arxiv.org/abs/2009.14119) | [Pretrained models](MODEL_ZOO.md)
+<br> [Paper-V2](https://arxiv.org/abs/2009.14119) |
+[Pretrained models](MODEL_ZOO.md)
 
 Official PyTorch Implementation
 
@@ -14,27 +14,16 @@ Official PyTorch Implementation
 
 **Abstract**
 
-> Pictures of everyday life are inherently multi-label in nature. Hence,
-> multi-label classification is commonly used to analyze their content.
-> In typical multi-label datasets, each picture contains only a few
-> positive labels, and many negative ones. This positive-negative
-> imbalance can result in under-emphasizing gradients from positive
-> labels during training, leading to poor accuracy. In this paper,
-> we introduce a novel asymmetric loss ("ASL"), that operates
-> differently on positive and negative samples. The loss dynamically
-> down-weights the importance of easy negative samples, causing the
-> optimization process to focus more on the positive samples, and also
-> enables to discard mislabeled negative samples. We demonstrate how ASL
-> leads to a more "balanced" network, with increased average
-> probabilities for positive samples, and show how this balanced network
-> is translated to better mAP scores, compared to commonly used losses.
-> Furthermore, we offer a method that can dynamically adjust the level
-> of asymmetry throughout the training. With ASL, we reach new
-> state-of-the-art results on three common multi-label datasets,
-> including achieving $86.6\%$ on MS-COCO. We also demonstrate ASL
-> applicability for other tasks such as fine-grain single-label
-> classification and object detection. ASL is effective, easy to
-> implement, and does not increase the training time or complexity
+In a typical multi-label setting, a picture contains on average few positive labels, and many negative ones. This positive-negative imbalance dominates the optimization process, and can lead to under-emphasizing gradients from positive labels during training, resulting in poor accuracy. In this paper, we introduce a novel asymmetric loss ("ASL"), which operates differently on positive and negative samples. The loss enables to dynamically down-weights and hard-thresholds easy negative samples, while also discarding possibly mislabeled samples. We demonstrate how ASL can balance the probabilities of different samples, and how this balancing is translated to better mAP scores. With ASL, we reach state-of-the-art results on multiple popular multi-label datasets: MS-COCO, Pascal-VOC, NUS-WIDE and Open Images. We also demonstrate ASL applicability for other tasks, such as single-label classification and object detection. ASL is effective, easy to implement, and does not increase the training time or complexity.
+
+<p align="center">
+ <table class="tg">
+  <tr>
+    <td class="tg-c3ow"><img src="./pics/loss_graph.png" align="center" width="400" ></td>
+    <td class="tg-c3ow"><img src="./pics/backbones.png" align="center" width="400" ></td>
+  </tr>
+</table>
+</p>
 
 <p align="center">
  <table class="tg">
