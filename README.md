@@ -25,22 +25,22 @@ In a typical multi-label setting, a picture contains on average few positive lab
 </table>
 </p>
 
-<p align="center">
- <table class="tg">
-  <tr>
-    <td class="tg-c3ow"><img src="./pics/ASL_comparison.png" align="center" width="400" ></td>
-    <td class="tg-c3ow"><img src="./pics/detection.png" align="center" width="400" ></td>
-  </tr>
-</table>
-</p>
+<!--<p align="center">-->
+<!-- <table class="tg">-->
+<!--  <tr>-->
+<!--    <td class="tg-c3ow"><img src="./pics/ASL_comparison.png" align="center" width="400" ></td>-->
+<!--    <td class="tg-c3ow"><img src="./pics/detection.png" align="center" width="400" ></td>-->
+<!--  </tr>-->
+<!--</table>-->
+<!--</p>-->
 
-<p align="center">
- <table class="tg">
-  <tr>
-    <td class="tg-c3ow"><img src="./pics/herbarium.png" align="center" width="400" ></td>
-    <td class="tg-c3ow"><img src="./pics/open_images.png" align="center" width="400" ></td>
-  </tr>
-</table>
+<!--<p align="center">-->
+<!-- <table class="tg">-->
+<!--  <tr>-->
+<!--    <td class="tg-c3ow"><img src="./pics/herbarium.png" align="center" width="400" ></td>-->
+<!--    <td class="tg-c3ow"><img src="./pics/open_images.png" align="center" width="400" ></td>-->
+<!--  </tr>-->
+<!--</table>-->
 </p>
 
 ## Frequently Asked Questions
