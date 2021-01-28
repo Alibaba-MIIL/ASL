@@ -43,6 +43,25 @@ In a typical multi-label setting, a picture contains on average few positive lab
 </table>
 </p>
 
+## Frequently Asked Questions
+Some questions are repeatedly asked in the issues section. make sure to
+review them before starting a new issue:
+- Regarding combining ASL with other technics, see
+  [link](https://github.com/Alibaba-MIIL/ASL/issues/35)
+- Regarding training script, see
+  [link](https://github.com/Alibaba-MIIL/ASL/issues/25#issuecomment-739889051)
+- Regarding implementation of asymmetric clipping, see [link](https://github.com/Alibaba-MIIL/ASL/issues/10)
+- Regarding disable_torch_grad_focal_loss option, see
+  [link](https://github.com/Alibaba-MIIL/ASL/issues/31)
+- Regarding squish Vs crop resizing, see
+  [link](https://github.com/Alibaba-MIIL/ASL/issues/30#issuecomment-754005570)
+- Regarding training tricks, see
+  [link](https://github.com/Alibaba-MIIL/ASL/issues/30#issuecomment-750780576)
+- How to apply ASL to your own dataset, see
+  [link](https://github.com/Alibaba-MIIL/ASL/issues/22#issuecomment-736721770)
+
+
+
 ## Asymmetric Loss (ASL) Implementation
 In this PyTorch [file](\src\loss_functions\losses.py), we provide 
 implementations of our new loss function, ASL, that can serve as a
