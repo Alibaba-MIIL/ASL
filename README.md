@@ -46,7 +46,7 @@ In a typical multi-label setting, a picture contains on average few positive lab
 ## Frequently Asked Questions
 Some questions are repeatedly asked in the issues section. make sure to
 review them before starting a new issue:
-- Regarding combining ASL with other technics, see
+- Regarding combining ASL with other techniques, see
   [link](https://github.com/Alibaba-MIIL/ASL/issues/35)
 - Regarding training script, see
   [link](https://github.com/Alibaba-MIIL/ASL/issues/25#issuecomment-739889051)
