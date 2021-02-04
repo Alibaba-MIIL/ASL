@@ -1,9 +1,16 @@
 import os
+from copy import deepcopy
+import random
+import time
+from copy import deepcopy
 
 import numpy as np
 from PIL import Image
 from torchvision import datasets as datasets
 import torch
+from PIL import ImageDraw
+from pycocotools.coco import COCO
+
 
 def parse_args(parser):
     # parsing args
@@ -91,7 +98,6 @@ class AverageMeter(object):
 
 class CocoDetection(datasets.coco.CocoDetection):
     def __init__(self, root, annFile, transform=None, target_transform=None):
-        from pycocotools.coco import COCO
         self.root = root
         self.coco = COCO(annFile)
 
@@ -127,3 +133,65 @@ class CocoDetection(datasets.coco.CocoDetection):
         if self.target_transform is not None:
             target = self.target_transform(target)
         return img, target
+
+
+class ModelEma(torch.nn.Module):
+    def __init__(self, model, decay=0.9997, device=None):
+        super(ModelEma, self).__init__()
+        # make a copy of the model for accumulating moving average of weights
+        self.module = deepcopy(model)
+        self.module.eval()
+        self.decay = decay
+        self.device = device  # perform ema on different device from model if set
+        if self.device is not None:
+            self.module.to(device=device)
+
+    def _update(self, model, update_fn):
+        with torch.no_grad():
+            for ema_v, model_v in zip(self.module.state_dict().values(), model.state_dict().values()):
+                if self.device is not None:
+                    model_v = model_v.to(device=self.device)
+                ema_v.copy_(update_fn(ema_v, model_v))
+
+    def update(self, model):
+        self._update(model, update_fn=lambda e, m: self.decay * e + (1. - self.decay) * m)
+
+    def set(self, model):
+        self._update(model, update_fn=lambda e, m: m)
+
+
+class CutoutPIL(object):
+    def __init__(self, cutout_factor=0.5):
+        self.cutout_factor = cutout_factor
+
+    def __call__(self, x):
+        img_draw = ImageDraw.Draw(x)
+        h, w = x.size[0], x.size[1]  # HWC
+        h_cutout = int(self.cutout_factor * h + 0.5)
+        w_cutout = int(self.cutout_factor * w + 0.5)
+        y_c = np.random.randint(h)
+        x_c = np.random.randint(w)
+
+        y1 = np.clip(y_c - h_cutout // 2, 0, h)
+        y2 = np.clip(y_c + h_cutout // 2, 0, h)
+        x1 = np.clip(x_c - w_cutout // 2, 0, w)
+        x2 = np.clip(x_c + w_cutout // 2, 0, w)
+        fill_color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        img_draw.rectangle([x1, y1, x2, y2], fill=fill_color)
+
+        return x
+
+
+def add_weight_decay(model, weight_decay=1e-4, skip_list=()):
+    decay = []
+    no_decay = []
+    for name, param in model.named_parameters():
+        if not param.requires_grad:
+            continue  # frozen weights
+        if len(param.shape) == 1 or name.endswith(".bias") or name in skip_list:
+            no_decay.append(param)
+        else:
+            decay.append(param)
+    return [
+        {'params': no_decay, 'weight_decay': 0.},
+        {'params': decay, 'weight_decay': weight_decay}]
