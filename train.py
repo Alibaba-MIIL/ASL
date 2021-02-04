@@ -1,7 +1,4 @@
 import argparse
-import random
-import time
-from copy import deepcopy
 
 import torch
 import torch.nn.parallel
@@ -9,15 +6,11 @@ import torch.optim
 import torch.utils.data.distributed
 import torchvision.transforms as transforms
 import os
-from torch.optim import lr_scheduler, Adam
-
-from src.helper_functions.helper_functions import mAP, AverageMeter, CocoDetection
+from torch.optim import lr_scheduler
+from src.helper_functions.helper_functions import mAP, CocoDetection, CutoutPIL, ModelEma, add_weight_decay
 from src.models import create_model
 from src.loss_functions.losses import AsymmetricLoss
-import numpy as np
 from randaugment import RandAugment
-from PIL import ImageDraw
-
 from torch.cuda.amp import GradScaler, autocast
 
 parser = argparse.ArgumentParser(description='PyTorch MS_COCO Training')
@@ -38,116 +31,6 @@ parser.add_argument('--print-freq', '-p', default=64, type=int,
                     metavar='N', help='print frequency (default: 64)')
 
 
-class AsymmetricLoss(torch.nn.Module):
-    def __init__(self, gamma_neg=4, gamma_pos=0, clip=0.05, eps=1e-8, disable_torch_grad_focal_loss=False):
-        super(AsymmetricLoss, self).__init__()
-
-        self.gamma_neg = gamma_neg
-        self.gamma_pos = gamma_pos
-        self.clip = clip
-        self.disable_torch_grad_focal_loss = disable_torch_grad_focal_loss
-        self.eps = eps
-
-    def forward(self, x, y):
-        """"
-        Parameters
-        ----------
-        x: input logits
-        y: targets (multi-label binarized vector)
-        """
-
-        # Calculating Probabilities
-        x_sigmoid = torch.sigmoid(x)
-        xs_pos = x_sigmoid
-        xs_neg = 1 - x_sigmoid
-
-        # Asymmetric Clipping
-        if self.clip is not None and self.clip > 0:
-            xs_neg = (xs_neg + self.clip).clamp(max=1)
-
-        # Basic CE calculation
-        los_pos = y * torch.log(xs_pos.clamp(min=self.eps))
-        los_neg = (1 - y) * torch.log(xs_neg.clamp(min=self.eps))
-        loss = los_pos + los_neg
-
-        # Asymmetric Focusing
-        if self.gamma_neg > 0 or self.gamma_pos > 0:
-            if self.disable_torch_grad_focal_loss:
-                torch.set_grad_enabled(False)
-            pt0 = xs_pos * y
-            pt1 = xs_neg * (1 - y)  # pt = p if t > 0 else 1-p
-            pt = pt0 + pt1
-            one_sided_gamma = self.gamma_pos * y + self.gamma_neg * (1 - y)
-            one_sided_w = torch.pow(1 - pt, one_sided_gamma)
-            if self.disable_torch_grad_focal_loss:
-                torch.set_grad_enabled(True)
-            loss *= one_sided_w
-
-        return -loss.sum()
-
-
-class ModelEma(torch.nn.Module):
-    def __init__(self, model, decay=0.9997, device=None):
-        super(ModelEma, self).__init__()
-        # make a copy of the model for accumulating moving average of weights
-        self.module = deepcopy(model)
-        self.module.eval()
-        self.decay = decay
-        self.device = device  # perform ema on different device from model if set
-        if self.device is not None:
-            self.module.to(device=device)
-
-    def _update(self, model, update_fn):
-        with torch.no_grad():
-            for ema_v, model_v in zip(self.module.state_dict().values(), model.state_dict().values()):
-                if self.device is not None:
-                    model_v = model_v.to(device=self.device)
-                ema_v.copy_(update_fn(ema_v, model_v))
-
-    def update(self, model):
-        self._update(model, update_fn=lambda e, m: self.decay * e + (1. - self.decay) * m)
-
-    def set(self, model):
-        self._update(model, update_fn=lambda e, m: m)
-
-
-class CutoutPIL(object):
-    def __init__(self, cutout_factor=0.5):
-        self.cutout_factor = cutout_factor
-
-    def __call__(self, x):
-        img_draw = ImageDraw.Draw(x)
-        h, w = x.size[0], x.size[1]  # HWC
-        h_cutout = int(self.cutout_factor * h + 0.5)
-        w_cutout = int(self.cutout_factor * w + 0.5)
-        y_c = np.random.randint(h)
-        x_c = np.random.randint(w)
-
-        y1 = np.clip(y_c - h_cutout // 2, 0, h)
-        y2 = np.clip(y_c + h_cutout // 2, 0, h)
-        x1 = np.clip(x_c - w_cutout // 2, 0, w)
-        x2 = np.clip(x_c + w_cutout // 2, 0, w)
-        fill_color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-        img_draw.rectangle([x1, y1, x2, y2], fill=fill_color)
-
-        return x
-
-
-def add_weight_decay(model, weight_decay=1e-4, skip_list=()):
-    decay = []
-    no_decay = []
-    for name, param in model.named_parameters():
-        if not param.requires_grad:
-            continue  # frozen weights
-        if len(param.shape) == 1 or name.endswith(".bias") or name in skip_list:
-            no_decay.append(param)
-        else:
-            decay.append(param)
-    return [
-        {'params': no_decay, 'weight_decay': 0.},
-        {'params': decay, 'weight_decay': weight_decay}]
-
-
 def main():
     args = parser.parse_args()
     args.batch_size = args.batch_size
@@ -158,17 +41,14 @@ def main():
     model = create_model(args).cuda()
     if args.model_path:
         state = torch.load(args.model_path, map_location='cpu')
-        filtered_dict = {k: v for k, v in state['model'].items() if (k in model.state_dict() and 'head.fc' not in k)}
+        filtered_dict = {k: v for k, v in state['model'].items() if
+                         (k in model.state_dict() and 'head.fc' not in k)}
         model.load_state_dict(filtered_dict, strict=False)
-        # model.load_state_dict(state['model'], strict=False)
     print('done\n')
 
     # Data loading code
-    normalize = transforms.Normalize(mean=[0, 0, 0], std=[1, 1, 1])
-
     instances_path_val = os.path.join(args.data, 'annotations/instances_val2014.json')
     instances_path_train = os.path.join(args.data, 'annotations/instances_train2014.json')
-
     # data_path_val = os.path.join(args.data, 'val2014')
     # data_path_train = os.path.join(args.data, 'train2014')
     data_path_val = args.data
@@ -229,7 +109,7 @@ def train_multi_label_coco(model, train_loader, val_loader, lr=2e-4, gamma_neg=4
             target = target.cuda()  # (batch,3,num_classes)
             target = target.max(dim=1)[0]
             with autocast():  # mixed precision
-                output = model(inputData).float() # sigmoid will be done in loss !
+                output = model(inputData).float()  # sigmoid will be done in loss !
             loss = criterion(output, target)
             model.zero_grad()
 
@@ -256,7 +136,7 @@ def train_multi_label_coco(model, train_loader, val_loader, lr=2e-4, gamma_neg=4
                 'models/', 'model-{}-{}.ckpt'.format(epoch + 1, i + 1)))
         except:
             pass
-        # modelName = 'models/' + 'decoder-{}-{}.ckpt'.format(epoch+1, i+1)
+
         model.eval()
         mAP_score = validate_multi(val_loader, model, ema)
         model.train()
@@ -294,7 +174,6 @@ def validate_multi(val_loader, model, ema_model):
     mAP_score_ema = mAP(torch.cat(targets).numpy(), torch.cat(preds_ema).numpy())
     print("mAP score regular {:.2f}, mAP score EMA {:.2f}".format(mAP_score_regular, mAP_score_ema))
     return max(mAP_score_regular, mAP_score_ema)
-
 
 
 if __name__ == '__main__':
