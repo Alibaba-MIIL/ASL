@@ -45,7 +45,8 @@ In a typical multi-label setting, a picture contains on average few positive lab
 
 ## Training Code Now Available !
 
-With great support and collaboration with @Ghostwnd, we now provide a
+With great support and collaboration with
+[@GhostWnd](https://github.com/GhostWnd), we now provide a
 [script](train.py) for reproducing the article results, and now finally
 a modern multi-label training code is available for the community.
 ## Frequently Asked Questions
