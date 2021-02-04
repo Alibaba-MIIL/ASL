@@ -43,6 +43,11 @@ In a typical multi-label setting, a picture contains on average few positive lab
 <!--</table>-->
 </p>
 
+## Training Code Now Available !
+
+With great support and collaboration with @Ghostwnd, we now provide a
+[script](train.py) for reproducing the article results and finally enable
+a modern multi-label training repo for the community.
 ## Frequently Asked Questions
 Some questions are repeatedly asked in the issues section. make sure to
 review them before starting a new issue:
