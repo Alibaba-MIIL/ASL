@@ -53,9 +53,6 @@ Some questions are repeatedly asked in the issues section. make sure to
 review them before starting a new issue:
 - Regarding combining ASL with other techniques, see
   [link](https://github.com/Alibaba-MIIL/ASL/issues/35)
-- Regarding training script, we have a community effort to build a
-  publicly-available modern training code, see
-  [link](https://github.com/Alibaba-MIIL/ASL/issues/36)
 - Regarding implementation of asymmetric clipping, see [link](https://github.com/Alibaba-MIIL/ASL/issues/10)
 - Regarding disable_torch_grad_focal_loss option, see
   [link](https://github.com/Alibaba-MIIL/ASL/issues/31)
