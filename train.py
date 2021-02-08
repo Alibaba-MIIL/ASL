@@ -15,7 +15,7 @@ from torch.cuda.amp import GradScaler, autocast
 
 parser = argparse.ArgumentParser(description='PyTorch MS_COCO Training')
 parser.add_argument('data', metavar='DIR', help='path to dataset', default='/home/MSCOCO_2014/')
-parser.add_argument('--lr', default=2e-4, type=float)
+parser.add_argument('--lr', default=1e-4, type=float)
 parser.add_argument('--model-name', default='tresnet_m')
 parser.add_argument('--model-path', default='./tresnet_m.pth', type=str)
 parser.add_argument('--num-classes', default=80)
@@ -48,8 +48,10 @@ def main():
     # COCO Data loading
     instances_path_val = os.path.join(args.data, 'annotations/instances_val2014.json')
     instances_path_train = os.path.join(args.data, 'annotations/instances_train2014.json')
-    data_path_val = args.data
-    data_path_train = args.data
+    # data_path_val = args.data
+    # data_path_train = args.data
+    data_path_val   = f'{args.data}/val2014'    # args.data
+    data_path_train = f'{args.data}/train2014'  # args.data
     val_dataset = CocoDetection(data_path_val,
                                 instances_path_val,
                                 transforms.Compose([
@@ -86,7 +88,8 @@ def train_multi_label_coco(model, train_loader, val_loader, lr):
     ema = ModelEma(model, 0.9997)  # 0.9997^641=0.82
 
     # set optimizer
-    Epochs = 40
+    Epochs = 80
+    Stop_epoch = 40
     weight_decay = 1e-4
     criterion = AsymmetricLoss(gamma_neg=4, gamma_pos=0, clip=0.05, disable_torch_grad_focal_loss=True)
     parameters = add_weight_decay(model, weight_decay)
@@ -99,6 +102,8 @@ def train_multi_label_coco(model, train_loader, val_loader, lr):
     trainInfoList = []
     scaler = GradScaler()
     for epoch in range(Epochs):
+        if epoch > Stop_epoch:
+            break
         for i, (inputData, target) in enumerate(train_loader):
             inputData = inputData.cuda()
             target = target.cuda()  # (batch,3,num_classes)
@@ -153,7 +158,7 @@ def validate_multi(val_loader, model, ema_model):
     targets = []
     for i, (input, target) in enumerate(val_loader):
         target = target
-
+        target = target.max(dim=1)[0]
         # compute output
         with torch.no_grad():
             with autocast():
