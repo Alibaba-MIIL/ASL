@@ -7,9 +7,6 @@ from .layers.avg_pool import FastAvgPool2d
 from .layers.general_layers import SEModule, SpaceToDepthModule
 from inplace_abn import InPlaceABN
 
-
-# from inplace_abn import ABN
-
 class bottleneck_head(nn.Module):
     def __init__(self, num_features, num_classes, bottleneck_features=200):
         super(bottleneck_head, self).__init__()
