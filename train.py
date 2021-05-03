@@ -1,11 +1,10 @@
+import os
 import argparse
-
 import torch
 import torch.nn.parallel
 import torch.optim
 import torch.utils.data.distributed
 import torchvision.transforms as transforms
-import os
 from torch.optim import lr_scheduler
 from src.helper_functions.helper_functions import mAP, CocoDetection, CutoutPIL, ModelEma, add_weight_decay
 from src.models import create_model

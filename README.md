@@ -43,12 +43,16 @@ In a typical multi-label setting, a picture contains on average few positive lab
 <!--</table>-->
 </p>
 
+## 23/4/2021 Update - ImageNet21K Pretraining
+In a new [article](https://github.com/Alibaba-MIIL/ImageNet21K) we released, we share pretrain weights for different models, that dramatically outperfrom standard pretraining on downstream tasks, including multi-label ones.  
+We also compare in the article multi-label pretrianing with ASL on ImageNet21K to pretraining with standard loss functions (cross-entropy and focal loss).
+
 ## Training Code Now Available !
 
-With great support and collaboration with
-[@GhostWnd](https://github.com/GhostWnd), we now provide a
-[script](train.py) for fully reproducing the article results, and finally a
-<u>modern</u> multi-label training code is available for the community.
+With great collaboration by [@GhostWnd](https://github.com/GhostWnd), we
+now provide a [script](train.py) for fully reproducing the article
+results, and finally a <u>modern</u> multi-label training code is
+available for the community.
 ## Frequently Asked Questions
 Some questions are repeatedly asked in the issues section. make sure to
 review them before starting a new issue:
