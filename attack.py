@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser(description='PyTorch MS_COCO Training')
 parser.add_argument('data', metavar='DIR', help='path to dataset', default='/home/MSCOCO_2014/')
 parser.add_argument('--lr', default=1e-4, type=float)
 parser.add_argument('--model-name', default='tresnet_m')
-parser.add_argument('--model-path', default='./mlc-model-epoch100', type=str)
+parser.add_argument('--model-path', default='./mlc-model-epoch3', type=str)
 parser.add_argument('--num-classes', default=80)
 parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                     help='number of data loading workers (default: 16)')
@@ -25,7 +25,7 @@ parser.add_argument('--image-size', default=224, type=int,
                     metavar='N', help='input image size (default: 448)')
 parser.add_argument('--thre', default=0.8, type=float,
                     metavar='N', help='threshold value')
-parser.add_argument('-b', '--batch-size', default=1, type=int,
+parser.add_argument('-b', '--batch-size', default=20, type=int,
                     metavar='N', help='mini-batch size (default: 16)')
 parser.add_argument('--print-freq', '-p', default=64, type=int,
                     metavar='N', help='print frequency (default: 64)')
@@ -33,7 +33,7 @@ parser.add_argument('--print-freq', '-p', default=64, type=int,
 args = parser.parse_args()
 args.do_bottleneck_head = False
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+sigmoid = nn.Sigmoid()
 TARGET_INDEX = 60 # label for donut object
 
 
@@ -46,11 +46,11 @@ model.to(device)
 
 # Generate adversarials with targeted PGD attack
 # source: https://github.com/Harry24k/PGD-pytorch/blob/master/PGD.ipynb
-def create_adversarial_examples(model, images, target, eps=0.3, alpha=2/255, iters=40, device='cpu'):
+def create_adversarial_examples(model, images, target_class, eps=0.6, alpha=2/255, iters=40, device='cpu'):
     images = images.to(device)
-    target = target.to(device).float()
+    target_class = target_class.to(device).long()
     model = model.to(device)
-    loss = nn.BCELoss()
+    loss = nn.CrossEntropyLoss()
         
     ori_images = images.data
         
@@ -59,10 +59,10 @@ def create_adversarial_examples(model, images, target, eps=0.3, alpha=2/255, ite
         outputs = model(images).to(device)
 
         model.zero_grad()
-        cost = loss(outputs, target).to(device)
+        cost = loss(outputs, target_class).to(device)
         cost.backward()
 
-        adv_images = images + alpha*images.grad.sign()
+        adv_images = images - alpha*images.grad.sign()
         eta = torch.clamp(adv_images - ori_images, min=-eps, max=eps)
         images = torch.clamp(ori_images + eta, min=0, max=1).detach_()
             
@@ -82,7 +82,6 @@ train_dataset = CocoDetection(data_path_train,
                                   transforms.ToTensor(),
                                   # normalize,
                               ]))
-print("len(train_dataset)): ", len(train_dataset))
 
 # Pytorch Data loader
 train_loader = torch.utils.data.DataLoader(
@@ -90,26 +89,25 @@ train_loader = torch.utils.data.DataLoader(
     num_workers=args.workers, pin_memory=True)
 
 
-# Attack with a single batch
+# Take a batch and feed through model to obtain predictions
 (images, labels) = next(iter(train_loader))
-labels = labels.max(dim=1)[0]
-print(labels.shape)
-print(images.shape)
+labels = labels.max(dim=1)[0].to(device)
+images = images.to(device)
+pred = (sigmoid(model(images)) > 0.5).int().to(device)
+
+# Perform PGD attack and repeat
+target_class = torch.ones(args.batch_size) * TARGET_INDEX
+target_tensor = torch.zeros(80).int()
+target_tensor[TARGET_INDEX] = 1
+adversarials = create_adversarial_examples(model, images, target_class, device=device)
+pred_after_attack = sigmoid(model(adversarials))
+pred_after_attack = (pred_after_attack > 0.5).int()
 
 
+# print("prediction before attack", pred)
+# print("target vector", target_tensor)
+# print("prediction after attack", pred_after_attack)
+print(torch.sum(pred_after_attack[:, TARGET_INDEX]))
+print(torch.sum(pred[:, TARGET_INDEX]))
 
-target_labels = labels
-target_labels[:, TARGET_INDEX] = 1
-
-adversarials = create_adversarial_examples(model, images, target_labels, device=device)
-print(adversarials.shape)
-new_labels = model(adversarials)
-
-print(new_labels.shape)
-
-
-
-
-# print(torch.sum(labels[:, TARGET_INDEX]))
-# print(torch.sum(new_labels[:, TARGET_INDEX]))
 
