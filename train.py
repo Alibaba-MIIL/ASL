@@ -29,6 +29,9 @@ parser.add_argument('-b', '--batch-size', default=128, type=int,
 parser.add_argument('--print-freq', '-p', default=64, type=int,
                     metavar='N', help='print frequency (default: 64)')
 
+load_imagenet_pretrain = False
+load_checkpoint = True
+save_checkpoint = True
 
 def main():
     args = parser.parse_args()
@@ -37,11 +40,14 @@ def main():
     # Setup model
     print('creating model...')
     model = create_model(args).cuda()
-    if args.model_path:  # make sure to load pretrained ImageNet model
+    if load_imagenet_pretrain and args.model_path:  # make sure to load pretrained ImageNet model
         state = torch.load(args.model_path, map_location='cpu')
         filtered_dict = {k: v for k, v in state['model'].items() if
                          (k in model.state_dict() and 'head.fc' not in k)}
         model.load_state_dict(filtered_dict, strict=False)
+    elif load_checkpoint:
+        model_state = torch.load("mlc-model-epoch0", map_location='cpu')
+        model.load_state_dict(model_state["state_dict"])
     print('done\n')
 
     # COCO Data loading
@@ -130,11 +136,14 @@ def train_multi_label_coco(model, train_loader, val_loader, lr):
                               scheduler.get_last_lr()[0], \
                               loss.item()))
 
-        try:
-            torch.save(model.state_dict(), os.path.join(
-                'models/', 'model-{}-{}.ckpt'.format(epoch + 1, i + 1)))
-        except:
-            pass
+        if save_checkpoint:
+          print("Saving model parameters...")
+
+          model_state = {
+              "state_dict": model.state_dict(),
+              "optimizer": optimizer.state_dict(),
+          }
+          torch.save(model_state, "mlc-model-epoch{0}".format(epoch))
 
         model.eval()
         mAP_score = validate_multi(val_loader, model, ema)
