@@ -48,15 +48,16 @@ model.to(device)
 # source: https://github.com/Harry24k/PGD-pytorch/blob/master/PGD.ipynb
 def create_adversarial_examples(model, images, target_class, eps=0.6, alpha=2/255, iters=40, device='cpu'):
     images = images.to(device)
-    target_class = target_class.to(device).long()
+    target_class = target_class.to(device).float()
     model = model.to(device)
-    loss = nn.CrossEntropyLoss()
-        
+    # loss = nn.CrossEntropyLoss()
+    loss = nn.BCELoss()
+
     ori_images = images.data
         
     for i in range(iters):    
         images.requires_grad = True
-        outputs = model(images).to(device)
+        outputs = sigmoid(model(images)).to(device)
 
         model.zero_grad()
         cost = loss(outputs, target_class).to(device)
@@ -96,14 +97,13 @@ images = images.to(device)
 pred = (sigmoid(model(images)) > 0.5).int().to(device)
 
 # Perform PGD attack and repeat
-target_class = torch.ones(args.batch_size) * TARGET_INDEX
-target_tensor = torch.zeros(80).int()
-target_tensor[TARGET_INDEX] = 1
-adversarials = create_adversarial_examples(model, images, target_class, device=device)
-pred_after_attack = sigmoid(model(adversarials))
-pred_after_attack = (pred_after_attack > 0.5).int()
+target = torch.clone(pred)
+target[:, TARGET_INDEX] = 1
+adversarials = create_adversarial_examples(model, images, target, device=device)
+pred_after_attack = (sigmoid(model(adversarials)) > 0.5).int()
 
-
+# target_tensor = torch.zeros(80).int()
+# target_tensor[TARGET_INDEX] = 1
 # print("prediction before attack", pred)
 # print("target vector", target_tensor)
 # print("prediction after attack", pred_after_attack)
