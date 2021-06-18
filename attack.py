@@ -12,6 +12,7 @@ from src.models import create_model
 from src.loss_functions.losses import AsymmetricLoss
 from randaugment import RandAugment
 from torch.cuda.amp import GradScaler, autocast
+from pgd import create_targeted_adversarial_examples
 
 parser = argparse.ArgumentParser(description='PyTorch MS_COCO Training')
 parser.add_argument('data', metavar='DIR', help='path to dataset', default='/home/MSCOCO_2014/')
@@ -39,40 +40,16 @@ TARGET_INDEX = 60 # label for donut object
 
 # Configure mlc model
 model = create_model(args).cuda()
-model_state = torch.load("mlc-model-epoch100", map_location=device)
+model_state = torch.load("mlc-model-epoch50", map_location=device)
 model.load_state_dict(model_state["state_dict"])
 model.eval()
 model.to(device)
-
-# Generate adversarials with targeted PGD attack
-# source: https://github.com/Harry24k/PGD-pytorch/blob/master/PGD.ipynb
-def create_adversarial_examples(model, images, target_class, eps=0.6, alpha=2/255, iters=40, device='cpu'):
-    images = images.to(device)
-    target_class = target_class.to(device).long()
-    model = model.to(device)
-    loss = nn.CrossEntropyLoss()
-        
-    ori_images = images.data
-        
-    for i in range(iters):    
-        images.requires_grad = True
-        outputs = model(images).to(device)
-
-        model.zero_grad()
-        cost = loss(outputs, target_class).to(device)
-        cost.backward()
-
-        adv_images = images - alpha*images.grad.sign()
-        eta = torch.clamp(adv_images - ori_images, min=-eps, max=eps)
-        images = torch.clamp(ori_images + eta, min=0, max=1).detach_()
-            
-    return images
 
 
 # Load the data
 instances_path_train = os.path.join(args.data, 'annotations/instances_train2014.json')
 # data_path_train = args.data
-data_path_train = f'{args.data}/train2014'  # args.data
+data_path_train = '{0}/train2014'.format(args.data)
 train_dataset = CocoDetection(data_path_train,
                               instances_path_train,
                               transforms.Compose([
@@ -96,18 +73,17 @@ images = images.to(device)
 pred = (sigmoid(model(images)) > 0.5).int().to(device)
 
 # Perform PGD attack and repeat
-target_class = torch.ones(args.batch_size) * TARGET_INDEX
-target_tensor = torch.zeros(80).int()
-target_tensor[TARGET_INDEX] = 1
-adversarials = create_adversarial_examples(model, images, target_class, device=device)
-pred_after_attack = sigmoid(model(adversarials))
-pred_after_attack = (pred_after_attack > 0.5).int()
+target = torch.clone(pred)
+target[:, TARGET_INDEX] = 1
+adversarials = create_targeted_adversarial_examples(model, images, target, device=device)
+pred_after_attack = (sigmoid(model(adversarials)) > 0.5).int()
 
-
-# print("prediction before attack", pred)
+# target_tensor = torch.zeros(80).int()
+# target_tensor[TARGET_INDEX] = 1
+print("prediction before attack", pred)
 # print("target vector", target_tensor)
-# print("prediction after attack", pred_after_attack)
-print(torch.sum(pred_after_attack[:, TARGET_INDEX]))
+print("prediction after attack", pred_after_attack)
 print(torch.sum(pred[:, TARGET_INDEX]))
+print(torch.sum(pred_after_attack[:, TARGET_INDEX]))
 
 
