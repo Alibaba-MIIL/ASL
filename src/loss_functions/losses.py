@@ -37,14 +37,14 @@ class AsymmetricLoss(nn.Module):
         # Asymmetric Focusing
         if self.gamma_neg > 0 or self.gamma_pos > 0:
             if self.disable_torch_grad_focal_loss:
-                torch._C.set_grad_enabled(False)
+                torch.set_grad_enabled(False)
             pt0 = xs_pos * y
             pt1 = xs_neg * (1 - y)  # pt = p if t > 0 else 1-p
             pt = pt0 + pt1
             one_sided_gamma = self.gamma_pos * y + self.gamma_neg * (1 - y)
             one_sided_w = torch.pow(1 - pt, one_sided_gamma)
             if self.disable_torch_grad_focal_loss:
-                torch._C.set_grad_enabled(True)
+                torch.set_grad_enabled(True)
             loss *= one_sided_w
 
         return -loss.sum()
@@ -92,13 +92,13 @@ class AsymmetricLossOptimized(nn.Module):
         # Asymmetric Focusing
         if self.gamma_neg > 0 or self.gamma_pos > 0:
             if self.disable_torch_grad_focal_loss:
-                torch._C.set_grad_enabled(False)
+                torch.set_grad_enabled(False)
             self.xs_pos = self.xs_pos * self.targets
             self.xs_neg = self.xs_neg * self.anti_targets
             self.asymmetric_w = torch.pow(1 - self.xs_pos - self.xs_neg,
                                           self.gamma_pos * self.targets + self.gamma_neg * self.anti_targets)
             if self.disable_torch_grad_focal_loss:
-                torch._C.set_grad_enabled(True)
+                torch.set_grad_enabled(True)
             self.loss *= self.asymmetric_w
 
         return -self.loss.sum()
