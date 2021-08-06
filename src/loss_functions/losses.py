@@ -105,17 +105,24 @@ class AsymmetricLossOptimized(nn.Module):
 
 
 class ASLSingleLabel(nn.Module):
+    '''
+    This loss is intended for single-label classification problems
+    '''
     def __init__(self, gamma_pos=0, gamma_neg=4, eps: float = 0.1, reduction='mean'):
         super(ASLSingleLabel, self).__init__()
 
         self.eps = eps
         self.logsoftmax = nn.LogSoftmax(dim=-1)
-        self.targets_classes = []  # prevent gpu repeated memory allocation
+        self.targets_classes = []
         self.gamma_pos = gamma_pos
         self.gamma_neg = gamma_neg
         self.reduction = reduction
 
-    def forward(self, inputs, target, reduction=None):
+    def forward(self, inputs, target):
+        '''
+        "input" dimensions: - (batch_size,number_classes)
+        "target" dimensions: - (batch_size)
+        '''
         num_classes = inputs.size()[-1]
         log_preds = self.logsoftmax(inputs)
         self.targets_classes = torch.zeros_like(inputs).scatter_(1, target.long().unsqueeze(1), 1)
@@ -132,7 +139,7 @@ class ASLSingleLabel(nn.Module):
         log_preds = log_preds * asymmetric_w
 
         if self.eps > 0:  # label smoothing
-            self.targets_classes.mul_(1 - self.eps).add_(self.eps / num_classes)
+            self.targets_classes = self.targets_classes.mul(1 - self.eps).add(self.eps / num_classes)
 
         # loss calculation
         loss = - self.targets_classes.mul(log_preds)
