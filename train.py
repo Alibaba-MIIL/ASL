@@ -24,13 +24,13 @@ parser.add_argument('--image-size', default=224, type=int,
                     metavar='N', help='input image size (default: 448)')
 parser.add_argument('--thre', default=0.8, type=float,
                     metavar='N', help='threshold value')
-parser.add_argument('-b', '--batch-size', default=128, type=int,
+parser.add_argument('-b', '--batch-size', default=56, type=int,
                     metavar='N', help='mini-batch size (default: 16)')
 parser.add_argument('--print-freq', '-p', default=64, type=int,
                     metavar='N', help='print frequency (default: 64)')
 
 load_imagenet_pretrain = False
-load_checkpoint = True
+load_checkpoint = False
 save_checkpoint = True
 
 def main():
