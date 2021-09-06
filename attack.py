@@ -13,6 +13,7 @@ from src.loss_functions.losses import AsymmetricLoss
 from randaugment import RandAugment
 from torch.cuda.amp import GradScaler, autocast
 from pgd import create_targeted_adversarial_examples
+import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='PyTorch MS_COCO Training')
 parser.add_argument('data', metavar='DIR', help='path to dataset', default='/home/MSCOCO_2014/')
@@ -40,7 +41,7 @@ TARGET_INDEX = 60 # label for donut object
 
 # Configure mlc model
 model = create_model(args).cuda()
-model_state = torch.load("mlc-model-epoch50", map_location=device)
+model_state = torch.load("ASL/mlc-model-epoch50", map_location=device)
 model.load_state_dict(model_state["state_dict"])
 model.eval()
 model.to(device)
@@ -66,24 +67,83 @@ train_loader = torch.utils.data.DataLoader(
     num_workers=args.workers, pin_memory=True)
 
 
-# Take a batch and feed through model to obtain predictions
-(images, labels) = next(iter(train_loader))
-labels = labels.max(dim=1)[0].to(device)
-images = images.to(device)
-pred = (sigmoid(model(images)) > 0.5).int().to(device)
+targets_before_list = []
+targets_after_list = []
+objects_before_list = []
+objects_after_list = []
+epsilon_values = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.6]
 
-# Perform PGD attack and repeat
-target = torch.clone(pred)
-target[:, TARGET_INDEX] = 1
-adversarials = create_targeted_adversarial_examples(model, images, target, device=device)
-pred_after_attack = (sigmoid(model(adversarials)) > 0.5).int()
+for epsilon in epsilon_values:
 
-# target_tensor = torch.zeros(80).int()
-# target_tensor[TARGET_INDEX] = 1
-print("prediction before attack", pred)
-# print("target vector", target_tensor)
-print("prediction after attack", pred_after_attack)
-print(torch.sum(pred[:, TARGET_INDEX]))
-print(torch.sum(pred_after_attack[:, TARGET_INDEX]))
+######### THIS IS AN EXPERIMENT VALUE FOR FIXED ESPILON
 
+  targets_true = 0
+  targets_before = 0
+  targets_after = 0
 
+  objects_true = 0
+  objects_before = 0
+  objects_after = 0
+
+  for i, (images, labels) in enumerate(train_loader):
+
+    ######### THIS IS A SINGLE BATCH
+    if i >= 20:
+      break
+    # Take a batch and feed through model to obtain predictions
+    labels = labels.max(dim=1)[0].to(device)
+    images = images.to(device)
+    pred = (sigmoid(model(images)) > 0.5).int().to(device)
+
+    # Perform PGD attack and repeat
+    target = torch.clone(pred)
+    target[:, TARGET_INDEX] = 1
+    adversarials = create_targeted_adversarial_examples(model, images, target, eps=epsilon, device=device)
+    pred_after_attack = (sigmoid(model(adversarials)) > 0.5).int()
+
+    # target_tensor = torch.zeros(80).int()
+    # target_tensor[TARGET_INDEX] = 1
+    # print("prediction before attack", pred)
+    # print("target vector", target_tensor)
+    # print("prediction after attack", pred_after_attack)
+    targets_true += torch.sum(labels[:, TARGET_INDEX])
+    targets_before += torch.sum(pred[:, TARGET_INDEX])
+    targets_after += torch.sum(pred_after_attack[:, TARGET_INDEX])
+
+    objects_true += torch.sum(labels)
+    objects_before += torch.sum(pred)
+    objects_after += torch.sum(pred_after_attack)
+
+  # print('amount of actual donuts', targets_true)
+  # print('amount of predicted donuts before attack', targets_before)
+  # print('amount of predicted donuts after attack', targets_after)
+
+  # print('amount of actual present objects', objects_true)
+  # print('amount of predicted present objects before attack', objects_before)
+  # print('amount of predicted present objects after attack', objects_after)
+
+  targets_before_list.append(targets_before.item())
+  targets_after_list.append(targets_after.item())
+
+  objects_before_list.append(objects_before.item())
+  objects_after_list.append(objects_after.item())
+
+### PLOT TARGETS AND OBJECTS ###
+
+plt.figure(1)
+plt.plot(epsilon_values, targets_before_list, label='clean images', color='green')
+plt.plot(epsilon_values, targets_after_list, label='perturbed images', color='red')
+plt.xlabel("Epsilon")
+plt.ylabel("Number of predicted targets")
+plt.title("Predicted targets")
+plt.legend()
+plt.savefig('targets.png')
+
+plt.figure(2)
+plt.plot(epsilon_values, objects_before_list, label='clean images', color='green')
+plt.plot(epsilon_values, objects_after_list, label='perturbed images', color='red')
+plt.xlabel("Epsilon")
+plt.ylabel("Number of predicted objects")
+plt.title("Predicted objects")
+plt.legend()
+plt.savefig('objects.png')
