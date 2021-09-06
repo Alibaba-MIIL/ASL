@@ -30,7 +30,7 @@ parser.add_argument('--print-freq', '-p', default=64, type=int,
                     metavar='N', help='print frequency (default: 64)')
 
 load_imagenet_pretrain = False
-load_checkpoint = False
+load_checkpoint = True
 save_checkpoint = True
 
 def main():
@@ -46,8 +46,10 @@ def main():
                          (k in model.state_dict() and 'head.fc' not in k)}
         model.load_state_dict(filtered_dict, strict=False)
     elif load_checkpoint:
-        model_state = torch.load("mlc-model-epoch3", map_location='cpu')
+        model_state = torch.load("mlc-model-epoch50", map_location='cpu')
         model.load_state_dict(model_state["state_dict"])
+        model.eval()
+
     print('done\n')
 
     # COCO Data loading

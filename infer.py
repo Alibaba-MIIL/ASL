@@ -5,19 +5,19 @@ from src.models import create_model
 import argparse
 import matplotlib
 
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
 
 parser = argparse.ArgumentParser(description='ASL MS-COCO Inference on a single image')
 
-parser.add_argument('--model_path', type=str, default='./models_local/TRresNet_L_448_86.6.pth')
-parser.add_argument('--pic_path', type=str, default='./pics/000000000885.jpg')
-parser.add_argument('--model_name', type=str, default='tresnet_l')
+parser.add_argument('--model_path', type=str, default='./mlc-model-epoch50')
+parser.add_argument('--pic_path', type=str, default='./pics/test.jpg')
+parser.add_argument('--model_name', type=str, default='tresnet_m')
 parser.add_argument('--input_size', type=int, default=448)
 parser.add_argument('--dataset_type', type=str, default='MS-COCO')
-parser.add_argument('--th', type=float, default=None)
+parser.add_argument('--th', type=float, default=0.5)
 
 
 def main():
@@ -28,12 +28,12 @@ def main():
 
     # setup model
     print('creating and loading the model...')
-    state = torch.load(args.model_path, map_location='cpu')
-    args.num_classes = state['num_classes']
+    # state = torch.load(args.model_path, map_location='cpu')
+    args.num_classes = 80
     model = create_model(args).cuda()
-    model.load_state_dict(state['model'], strict=True)
+    model_state = torch.load(args.model_path, map_location='cpu')
+    model.load_state_dict(model_state["state_dict"])
     model.eval()
-    classes_list = np.array(list(state['idx_to_class'].values()))
     print('done\n')
 
     # doing inference
@@ -45,7 +45,8 @@ def main():
     tensor_batch = torch.unsqueeze(tensor_img, 0).cuda()
     output = torch.squeeze(torch.sigmoid(model(tensor_batch)))
     np_output = output.cpu().detach().numpy()
-    detected_classes = classes_list[np_output > args.th]
+    detected_classes = np.where(np_output > args.th)
+    print(detected_classes)
     print('done\n')
 
     # example loss calculation
