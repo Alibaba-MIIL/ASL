@@ -96,6 +96,85 @@ class AverageMeter(object):
         self.ema = self.ema * 0.99 + self.val * 0.01
 
 
+class CocoDetectionFiltered(datasets.coco.CocoDetection):
+    def __init__(self, root, annFile, transform=None, target_transform=None, label_indices_positive=None, label_indices_negative=None):
+        self.root = root
+        self.coco = COCO(annFile)
+
+        self.ids = list(self.coco.imgToAnns.keys())
+        self.transform = transform
+        self.target_transform = target_transform
+        self.cat2cat = dict()
+        for cat in self.coco.cats.keys():
+            self.cat2cat[cat] = len(self.cat2cat)
+
+        self.num_classes = 80
+        self.train_data = []
+        self.train_labels = []
+
+        for index, _ in enumerate(self.ids):
+            img_path, target = self.get_item_coco_numpy(index)
+            # check if the specified labels are of the desired value
+
+            target = target.astype(int)
+
+            if label_indices_positive is not None:
+                if int(sum(target[label_indices_positive])) != len(label_indices_positive):
+                    continue
+
+            if label_indices_negative is not None:                
+                if sum(target[label_indices_negative]) != 0:
+                    continue
+
+            self.train_data.append(img_path)
+            self.train_labels.append(target)
+
+        num_samples = len(self.train_labels)
+        self.num_samples = num_samples
+
+        # Converting to numpy array
+        self.train_data = np.array(self.train_data)
+        self.train_labels = np.array(self.train_labels)
+
+    def __getitem__(self, index):
+        # Don't forget train_data only keeps the path of the image
+        # Loading the image will occur now (like in the original ASL repo)
+
+        img_path, target = self.train_data[index], self.train_labels[index]
+
+        # Here we load the image
+        img = Image.open(os.path.join(self.root, img_path)).convert('RGB')
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+
+        return img, torch.from_numpy(target)
+
+
+    def __len__(self):
+        return self.num_samples
+
+
+    # This method gives us numpy representation of img path and the corresponding label
+    def get_item_coco_numpy(self, index):
+        coco = self.coco
+        img_id = self.ids[index]
+        ann_ids = coco.getAnnIds(imgIds=img_id)
+        target = coco.loadAnns(ann_ids)
+
+        output = np.zeros(self.num_classes)
+        for obj in target:
+            output[self.cat2cat[obj['category_id']]] = 1
+        target = output
+
+        path = coco.loadImgs(img_id)[0]['file_name']
+
+        return path, target
+
+
 class CocoDetection(datasets.coco.CocoDetection):
     def __init__(self, root, annFile, transform=None, target_transform=None):
         self.root = root

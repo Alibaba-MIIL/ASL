@@ -11,7 +11,7 @@ from pgd import create_targeted_adversarial_examples
 import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
-from src.helper_functions.helper_functions import mAP, CocoDetection, CutoutPIL, ModelEma, add_weight_decay
+from src.helper_functions.helper_functions import mAP, CocoDetection, CocoDetectionFiltered, CutoutPIL, ModelEma, add_weight_decay
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # USE GPU
 
@@ -25,8 +25,12 @@ parser.add_argument('--pic_path', type=str, default='./pics/test.jpg')
 parser.add_argument('--model_name', type=str, default='tresnet_m')
 parser.add_argument('--input_size', type=int, default=224)
 parser.add_argument('--dataset_type', type=str, default='MS-COCO')
+
+#IMPORTANT PARAMETER!
 parser.add_argument('--th', type=float, default=0.5)
-parser.add_argument('-b', '--batch-size', default=20, type=int,
+
+
+parser.add_argument('-b', '--batch-size', default=16, type=int,
                     metavar='N', help='mini-batch size (default: 16)')
 parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                     help='number of data loading workers (default: 16)')
@@ -48,45 +52,48 @@ model.eval()
 instances_path_val = os.path.join(args.data, 'annotations/instances_val2014.json')
 # data_path_train = args.data
 data_path_val = '{0}/val2014'.format(args.data)
-dataset = CocoDetection(data_path_val,
-                                instances_path_val,
-                                transforms.Compose([
-                                    transforms.Resize((args.input_size, args.input_size)),
-                                    transforms.ToTensor(),
-                                    # normalize, # no need, toTensor does normalization
-                                ]))
-
-# Pytorch Data loader
-data_loader = torch.utils.data.DataLoader(
-    dataset, batch_size=args.batch_size, shuffle=True,
-    num_workers=args.workers, pin_memory=True)
-
 
 
 ################ EXPERIMENT DETAILS ########################
 
-NUMBER_OF_BATCHES = 50
-TARGET_LABELS = [0, 1, 11, 50, 79]
+NUMBER_OF_BATCHES = 64
+TARGET_LABELS = [0, 1, 11, 56, 78, 79]
 EPSILON_VALUES = [0, 0.005, 0.01, 0.02, 0.05, 0.1]
+PLOT_COUNTER = 0
 
 ########################## EXPERIMENT LOOP #####################
 
 for target_label in TARGET_LABELS:
 
-    targets_after = [0, 0, 0, 0, 0, 0]
+    dataset = CocoDetectionFiltered(data_path_val,
+                                instances_path_val,
+                                transforms.Compose([
+                                    transforms.Resize((args.input_size, args.input_size)),
+                                    transforms.ToTensor(),
+                                    # normalize, # no need, toTensor does normalization
+                                ]), label_indices_positive=np.array([target_label]))
+
+    # Pytorch Data loader
+    data_loader = torch.utils.data.DataLoader(
+        dataset, batch_size=args.batch_size, shuffle=True,
+        num_workers=args.workers, pin_memory=True)
+
+    # zero for each epsion value
+    flipped_labels = [0 for x in range(len(EPSILON_VALUES))]
 
     for i, (tensor_batch, labels) in enumerate(data_loader):
         tensor_batch = tensor_batch.to(device)
 
-        if i >= NUMBER_OF_BATCHES:
-            break
+        print(torch.sum(labels[:, target_label]))
 
+        if i >= NUMBER_OF_BATCHES:
+            break;
+
+        # process a batch and add the flipped labels for every epsilon
         for epsilon_index in range(len(EPSILON_VALUES)):
 
-            # do the infrence
-            pred = torch.sigmoid(model(tensor_batch)) > args.th
-
             # perform the pgd attack
+            pred = torch.sigmoid(model(tensor_batch)) > args.th
             target = torch.clone(pred).detach()
             target[:, target_label] = 1
             adversarials = create_targeted_adversarial_examples(model, tensor_batch, target, eps=EPSILON_VALUES[epsilon_index], device="cuda")
@@ -95,18 +102,19 @@ for target_label in TARGET_LABELS:
             pred_after_attack = torch.sigmoid(model(adversarials)) > args.th
             
             # compare the attaced labels before and after the attack
-            targets_after[epsilon_index] += torch.sum(pred_after_attack[:, target_label]).item()
+            flipped_labels[epsilon_index] += torch.sum(pred_after_attack[:, target_label]).item()
 
     print("Now doing batch {0} for label {1}".format(i, target_label))
 
     # plot and save the figures
-    plt.figure()
-    plt.plot(EPSILON_VALUES, targets_after, label='perturbed images', color='blue')
+    # plt.figure()
+    plt.plot(EPSILON_VALUES, flipped_labels, label='target {0}'.format(target_label))
     plt.xlabel("Epsilon")
     plt.ylabel("Number of predicted targets")
     plt.title("Predicted targets before vs after pgd attack")
     plt.legend()
-    plt.savefig('targets{0}.png'.format(target_label))
+    plt.savefig('pgd-attack{0}.png'.format(PLOT_COUNTER))
+    PLOT_COUNTER += 1
 
 
 
