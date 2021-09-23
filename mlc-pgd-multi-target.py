@@ -56,22 +56,23 @@ data_path = '{0}/train2014'.format(args.data)
 
 ################ EXPERIMENT DETAILS ########################
 
-NUMBER_OF_BATCHES = 64
-# TARGET_LABELS = [0, 1, 11, 56, 78, 79]
-TARGET_LABELS = [0, 78]
+NUMBER_OF_BATCHES = 8
+TARGET_LABELS = [0, 1, 11, 56, 78, 79]
+# TARGET_LABELS = [0]
+# NUMBER_OF_ATTACKED_BACKGROUND_LABELS = 10
 EPSILON_VALUES = [0, 0.005, 0.01, 0.02, 0.05, 0.1]
 
 ########################## EXPERIMENT LOOP #####################
 
 
-
+# load dataset with label filter
 dataset = CocoDetectionFiltered(data_path,
                             instances_path,
                             transforms.Compose([
                                 transforms.Resize((args.input_size, args.input_size)),
                                 transforms.ToTensor(),
                                 # normalize, # no need, toTensor does normalization
-                            ]), label_indices_positive=np.array(TARGET_LABELS))
+                            ]), label_indices_negative=np.array(TARGET_LABELS))
 
 # Pytorch Data loader
 data_loader = torch.utils.data.DataLoader(
@@ -80,6 +81,13 @@ data_loader = torch.utils.data.DataLoader(
 
 # zero for each epsion value
 flipped_labels = np.zeros((len(EPSILON_VALUES), len(TARGET_LABELS)))
+affected_other_labels = [x for x in range(len(EPSILON_VALUES))]
+
+
+# sample some random background labels to attack
+# all_labels = [x for x in range(80)]
+# background_labels = [item for item in all_labels if item not in TARGET_LABELS]
+# background_attack_labels = np.array(random.sample(background_labels, NUMBER_OF_ATTACKED_BACKGROUND_LABELS))
 
 for i, (tensor_batch, labels) in enumerate(data_loader):
     tensor_batch = tensor_batch.to(device)
@@ -87,13 +95,17 @@ for i, (tensor_batch, labels) in enumerate(data_loader):
     if i >= NUMBER_OF_BATCHES:
         break;
 
+
+    flipped_labels_this_batch = np.zeros((len(EPSILON_VALUES), len(TARGET_LABELS)))
+
+
     # process a batch and add the flipped labels for every epsilon
     for epsilon_index in range(len(EPSILON_VALUES)):
 
         # perform the pgd attack
         pred = torch.sigmoid(model(tensor_batch)) > args.th
         target = torch.clone(pred).detach()
-        target[:, TARGET_LABELS] = 0
+        target[:, TARGET_LABELS] = 1
         adversarials = create_targeted_adversarial_examples(model, tensor_batch, target, eps=EPSILON_VALUES[epsilon_index], device="cuda")
 
         # do inference again
@@ -102,17 +114,22 @@ for i, (tensor_batch, labels) in enumerate(data_loader):
         # compare the attaced labels before and after the attack
 
         for _id, target_label in enumerate(TARGET_LABELS):
-            flipped_labels[epsilon_index, _id] += (torch.sum(pred[:, target_label]).item() - torch.sum(pred_after_attack[:, target_label]).item())
+            # flipped_labels[epsilon_index, _id] += (torch.sum(pred[:, target_label]).item() - torch.sum(pred_after_attack[:, target_label]).item())
+            flipped_labels_this_batch[epsilon_index, _id] = torch.sum(pred_after_attack[:, target_label]).item()
+            flipped_labels[epsilon_index, _id] += flipped_labels_this_batch[epsilon_index, _id]
+
+        affected_other_labels[epsilon_index] += torch.sum(torch.logical_xor(pred,pred_after_attack).int()).item() - flipped_labels_this_batch[epsilon_index, :].sum() 
 
 # plot and save the figures
 # plt.figure()
 for _id, target_label in enumerate(TARGET_LABELS):
     plt.plot(EPSILON_VALUES, flipped_labels[:, _id], label='target {0}'.format(target_label))
+plt.plot(EPSILON_VALUES, affected_other_labels, label='affected other labels')
 plt.xlabel("Epsilon")
 plt.ylabel("Number of flipped labels")
-plt.title("PGD multi-label flipdown attack")
+plt.title("PGD multi-label flip-up attack")
 plt.legend()
-plt.savefig('flipdown-pgd-multi-attack.png')
+plt.savefig('flipup-pgd-multi-attack.png')
 
 
 
