@@ -57,7 +57,7 @@ data_path = '{0}/train2014'.format(args.data)
 ################ EXPERIMENT DETAILS ########################
 
 NUMBER_OF_BATCHES = 8
-TARGET_LABELS = [0, 1, 11, 56, 78, 79]
+TARGET_LABELS = [0, 1, 14, 56, 78, 79]
 # TARGET_LABELS = [0]
 # NUMBER_OF_ATTACKED_BACKGROUND_LABELS = 10
 EPSILON_VALUES = [0, 0.005, 0.01, 0.02, 0.05, 0.1]
@@ -129,7 +129,7 @@ plt.xlabel("Epsilon")
 plt.ylabel("Number of flipped labels")
 plt.title("PGD multi-label flip-up attack")
 plt.legend()
-plt.savefig('flipup-pgd-multi-attack.png')
+plt.savefig('flipup-pgd-multi-attack100.png')
 
 
 

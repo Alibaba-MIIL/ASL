@@ -11,6 +11,7 @@ from pgd import create_targeted_adversarial_examples
 import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
+from sklearn.metrics import auc
 from src.helper_functions.helper_functions import mAP, CocoDetection, CocoDetectionFiltered, CutoutPIL, ModelEma, add_weight_decay
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # USE GPU
@@ -58,11 +59,13 @@ data_path = '{0}/train2014'.format(args.data)
 
 NUMBER_OF_BATCHES = 8
 # TARGET_LABELS = [0, 1, 11, 56, 78, 79]
-TARGET_LABELS = [0, 78]
+TARGET_LABELS = [x for x in range(80)]
 EPSILON_VALUES = [0, 0.005, 0.01, 0.02, 0.05, 0.1]
 PLOT_COUNTER = 0
 
 ########################## EXPERIMENT LOOP #####################
+
+auc_values = np.zeros(len(TARGET_LABELS))
 
 for target_label in TARGET_LABELS:
 
@@ -106,14 +109,22 @@ for target_label in TARGET_LABELS:
             flipped_labels[epsilon_index] += flipped_labels_this_batch
             affected_non_target_labels[epsilon_index] += torch.sum(torch.logical_xor(pred,pred_after_attack).int()).item() - flipped_labels_this_batch
 
+    print(TARGET_LABELS.index(target_label))
+    auc_values[TARGET_LABELS.index(target_label)] = auc(EPSILON_VALUES, flipped_labels)
 
-    # plot and save the figures
-    plt.figure()
-    plt.plot(EPSILON_VALUES, flipped_labels, label='target {0} attack success'.format(target_label))
-    plt.plot(EPSILON_VALUES, affected_non_target_labels, label='target {0} other labels affected'.format(target_label))
-    plt.xlabel("Epsilon")
-    plt.ylabel("Attack success rate (per 1000)")
-    plt.legend()
-    plt.savefig('flipup-pgd-multi-attack{0}.png'.format(PLOT_COUNTER))
-    PLOT_COUNTER += 1
+plt.bar(range(80), auc_values)
+plt.xlabel("Label index")
+plt.ylabel("Attackability")
+plt.title("AUC values of attack curves")
+plt.savefig('attackabilities.png')
+
+# # plot and save the figures
+# plt.figure()
+# plt.plot(EPSILON_VALUES, flipped_labels, label='target {0} attack success'.format(target_label))
+# plt.plot(EPSILON_VALUES, affected_non_target_labels, label='target {0} other labels affected'.format(target_label))
+# plt.xlabel("Epsilon")
+# plt.ylabel("Attack success rate (per 1000)")
+# plt.legend()
+# plt.savefig('flipup-pgd-multi-attack{0}.png'.format(PLOT_COUNTER))
+# PLOT_COUNTER += 1
 
