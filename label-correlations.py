@@ -13,6 +13,7 @@ from PIL import Image
 import numpy as np
 from sklearn.metrics import auc
 from src.helper_functions.helper_functions import mAP, CocoDetection, CocoDetectionFiltered, CutoutPIL, ModelEma, add_weight_decay
+import seaborn as sns
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # USE GPU
 
@@ -31,7 +32,7 @@ parser.add_argument('--dataset_type', type=str, default='MS-COCO')
 parser.add_argument('--th', type=float, default=0.5)
 
 
-parser.add_argument('-b', '--batch-size', default=8, type=int,
+parser.add_argument('-b', '--batch-size', default=16, type=int,
                     metavar='N', help='mini-batch size (default: 16)')
 parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                     help='number of data loading workers (default: 16)')
@@ -57,16 +58,12 @@ data_path = '{0}/train2014'.format(args.data)
 
 ################ EXPERIMENT DETAILS ########################
 
-NUMBER_OF_BATCHES = 16
-# TARGET_LABELS = [0, 1, 11, 56, 78, 79]
+NUMBER_OF_BATCHES = 8
 TARGET_LABELS = [x for x in range(80)]
-# TARGET_LABELS = [1]
-EPSILON_VALUES = [0, 0.005, 0.01, 0.02, 0.05, 0.1]
-PLOT_COUNTER = 0
 
-########################## EXPERIMENT LOOP #####################
+########################## EXPERIMENT LOOP ################
 
-auc_values = np.zeros(len(TARGET_LABELS))
+correlations = torch.zeros((80,80))
 
 for target_label in TARGET_LABELS:
 
@@ -83,9 +80,10 @@ for target_label in TARGET_LABELS:
         dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True)
 
-    # zero for each epsion value
-    flipped_labels = [0 for x in range(len(EPSILON_VALUES))]
-    affected_non_target_labels = flipped_labels.copy()
+    target = torch.zeros(args.batch_size, args.num_classes).to(device).float()
+    target[:, target_label] = 1
+
+    # accumulated_diffs = torch.zeros(1,80)
 
     for i, (tensor_batch, labels) in enumerate(data_loader):
         tensor_batch = tensor_batch.to(device)
@@ -93,40 +91,11 @@ for target_label in TARGET_LABELS:
         if i >= NUMBER_OF_BATCHES:
             break;
 
-        # process a batch and add the flipped labels for every epsilon
-        for epsilon_index in range(len(EPSILON_VALUES)):
+        adversarials = create_targeted_adversarial_examples(model, tensor_batch, target, eps=0.01, device="cuda")
+        with torch.no_grad():
+            correlations[target_label] += (torch.sigmoid(model(adversarials)) - torch.sigmoid(model(tensor_batch))).sum(dim=0).cpu()
+        
 
-            # perform the pgd attack
-            pred = torch.sigmoid(model(tensor_batch)) > args.th
-            target = torch.clone(pred).detach()
-            target[:, target_label] = 1
-            adversarials = create_targeted_adversarial_examples(model, tensor_batch, target, eps=EPSILON_VALUES[epsilon_index], device="cuda")
-
-            # do inference again
-            pred_after_attack = torch.sigmoid(model(adversarials)) > args.th
-            
-            # compare the attaced labels before and after the attack
-            flipped_labels_this_batch = (torch.sum(pred_after_attack[:, target_label]).item())
-            flipped_labels[epsilon_index] += flipped_labels_this_batch
-            affected_non_target_labels[epsilon_index] += torch.sum(torch.logical_xor(pred,pred_after_attack).int()).item() - flipped_labels_this_batch
-
-    print(TARGET_LABELS.index(target_label))
-    auc_values[TARGET_LABELS.index(target_label)] = auc(EPSILON_VALUES, flipped_labels)
-
-plt.bar(range(80), auc_values)
-plt.xlabel("Label index")
-plt.ylabel("Attackability")
-plt.title("AUC values of attack curves")
-print(np.argsort(auc_values * -1))
-# plt.savefig('attackabilities-normalized.png')
-
-# # plot and save the figures
-# plt.figure()
-# plt.plot(EPSILON_VALUES, flipped_labels, label='target {0} attack success'.format(target_label))
-# plt.plot(EPSILON_VALUES, affected_non_target_labels, label='target {0} other labels affected'.format(target_label))
-# plt.xlabel("Epsilon")
-# plt.ylabel("Attack success rate (per 1000)")
-# plt.legend()
-# plt.savefig('flipup-pgd-single-attack{0}.png'.format(1))
-# PLOT_COUNTER += 1
-
+sns.heatmap(correlations)
+plt.show()
+plt.savefig("attack-correlations.png")

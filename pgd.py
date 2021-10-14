@@ -29,8 +29,13 @@ def create_targeted_adversarial_examples(model, images, target, eps=0.3, alpha=2
         cost = loss(outputs, target)
         cost.backward()
 
+        # perform the step
         adv_images = images - alpha * images.grad.sign()
+
+        # bound the perturbation
         eta = torch.clamp(adv_images - ori_images, min=-eps, max=eps)
+
+        # construct the adversarials by adding perturbations
         images = torch.clamp(ori_images + eta, min=0, max=1).detach_()
             
     return images
