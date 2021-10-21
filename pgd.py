@@ -9,7 +9,7 @@ softmax = nn.Softmax(dim=1)
 
 
 
-def create_targeted_adversarial_examples(model, images, target, eps=0.3, alpha=2/255, iters=40, device='cuda'):
+def create_targeted_adversarial_examples(model, images, target, target_ids=None, eps=0.3, alpha=2/255, iters=40, device='cuda'):
     
     images = images.to(device)
     target = target.to(device).float()
@@ -25,8 +25,12 @@ def create_targeted_adversarial_examples(model, images, target, eps=0.3, alpha=2
         outputs = sigmoid(model(images)).to(device)
 
         model.zero_grad()
+        cost = 0
 
-        cost = loss(outputs, target)
+        if target_ids:
+            cost = loss(outputs[:, target_ids], target[:, target_ids])
+        else:
+            cost = loss(outputs, target)
         cost.backward()
 
         # perform the step
@@ -39,6 +43,42 @@ def create_targeted_adversarial_examples(model, images, target, eps=0.3, alpha=2
         images = torch.clamp(ori_images + eta, min=0, max=1).detach_()
             
     return images
+
+def create_untargeted_adversarial_examples(model, images, eps=0.3, alpha=2/255, iters=40, device='cuda'):
+    
+    images = images.to(device)
+    model = model.to(device)
+    loss = nn.BCELoss()
+    ori_images = images.data.to(device)
+        
+    for i in range(iters):    
+        images.requires_grad = True
+        
+        # USE SIGMOID FOR MULTI-LABEL CLASSIFIER!
+        outputs = sigmoid(model(images)).to(device)
+
+        # This assumes prediction is correct
+        target = (outputs.clone() > 0.5).int().float()
+
+        model.zero_grad()
+        cost = loss(outputs, target.detach())
+        cost.backward()
+
+        print(images.grad.sign())
+
+        # perform the step
+        adv_images = images + alpha * images.grad.sign()
+
+        # bound the perturbation
+        eta = torch.clamp(adv_images - ori_images, min=-eps, max=eps)
+
+        # construct the adversarials by adding perturbations
+        images = torch.clamp(ori_images + eta, min=0, max=1).detach_()
+            
+    return images
+
+
+
 
 # def demonstrate_pgd():
 

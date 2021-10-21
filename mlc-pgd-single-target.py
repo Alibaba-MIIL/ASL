@@ -31,7 +31,7 @@ parser.add_argument('--dataset_type', type=str, default='MS-COCO')
 parser.add_argument('--th', type=float, default=0.5)
 
 
-parser.add_argument('-b', '--batch-size', default=8, type=int,
+parser.add_argument('-b', '--batch-size', default=16, type=int,
                     metavar='N', help='mini-batch size (default: 16)')
 parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                     help='number of data loading workers (default: 16)')
@@ -57,11 +57,11 @@ data_path = '{0}/train2014'.format(args.data)
 
 ################ EXPERIMENT DETAILS ########################
 
-NUMBER_OF_BATCHES = 16
+NUMBER_OF_BATCHES = 8
 # TARGET_LABELS = [0, 1, 11, 56, 78, 79]
-TARGET_LABELS = [x for x in range(80)]
-# TARGET_LABELS = [1]
-EPSILON_VALUES = [0, 0.005, 0.01, 0.02, 0.05, 0.1]
+# TARGET_LABELS = [x for x in range(80)]
+TARGET_LABELS = [0]
+EPSILON_VALUES = [0.001, 0.003, 0.005, 0.01, 0.03, 0.05, 0.1]
 PLOT_COUNTER = 0
 
 ########################## EXPERIMENT LOOP #####################
@@ -85,7 +85,9 @@ for target_label in TARGET_LABELS:
 
     # zero for each epsion value
     flipped_labels = [0 for x in range(len(EPSILON_VALUES))]
+    lazy_attack_flipped_labels = [0 for x in range(len(EPSILON_VALUES))]
     affected_non_target_labels = flipped_labels.copy()
+    lazy_attack_affected_non_target_labels = flipped_labels.copy()
 
     for i, (tensor_batch, labels) in enumerate(data_loader):
         tensor_batch = tensor_batch.to(device)
@@ -101,32 +103,41 @@ for target_label in TARGET_LABELS:
             target = torch.clone(pred).detach()
             target[:, target_label] = 1
             adversarials = create_targeted_adversarial_examples(model, tensor_batch, target, eps=EPSILON_VALUES[epsilon_index], device="cuda")
+            lazy_adversarials = create_targeted_adversarial_examples(model, tensor_batch, target, target_ids=[target_label], eps=EPSILON_VALUES[epsilon_index], device="cuda")
 
             # do inference again
             pred_after_attack = torch.sigmoid(model(adversarials)) > args.th
+            lazy_attack_pred_after_attack = torch.sigmoid(model(lazy_adversarials)) > args.th
             
-            # compare the attaced labels before and after the attack
+            # compare the attacked labels before and after the attack
             flipped_labels_this_batch = (torch.sum(pred_after_attack[:, target_label]).item())
             flipped_labels[epsilon_index] += flipped_labels_this_batch
             affected_non_target_labels[epsilon_index] += torch.sum(torch.logical_xor(pred,pred_after_attack).int()).item() - flipped_labels_this_batch
 
-    print(TARGET_LABELS.index(target_label))
+            # compare the attaced labels before and after the attack
+            lazy_attack_flipped_labels_this_batch = (torch.sum(lazy_attack_pred_after_attack[:, target_label]).item())
+            lazy_attack_flipped_labels[epsilon_index] += lazy_attack_flipped_labels_this_batch
+            lazy_attack_affected_non_target_labels[epsilon_index] += torch.sum(torch.logical_xor(pred,lazy_attack_pred_after_attack).int()).item() - lazy_attack_flipped_labels_this_batch
+
+
     auc_values[TARGET_LABELS.index(target_label)] = auc(EPSILON_VALUES, flipped_labels)
 
-plt.bar(range(80), auc_values)
-plt.xlabel("Label index")
-plt.ylabel("Attackability")
-plt.title("AUC values of attack curves")
-print(np.argsort(auc_values * -1))
+# plt.bar(range(80), auc_values)
+# plt.xlabel("Label index")
+# plt.ylabel("Attackability")
+# plt.title("AUC values of attack curves")
+# print(np.argsort(auc_values * -1))
 # plt.savefig('attackabilities-normalized.png')
 
-# # plot and save the figures
-# plt.figure()
-# plt.plot(EPSILON_VALUES, flipped_labels, label='target {0} attack success'.format(target_label))
-# plt.plot(EPSILON_VALUES, affected_non_target_labels, label='target {0} other labels affected'.format(target_label))
-# plt.xlabel("Epsilon")
-# plt.ylabel("Attack success rate (per 1000)")
-# plt.legend()
-# plt.savefig('flipup-pgd-single-attack{0}.png'.format(1))
-# PLOT_COUNTER += 1
+# plot and save the figures
+    plt.figure()
+    plt.plot(EPSILON_VALUES, flipped_labels, label='target {0} targeted attack'.format(target_label), color='blue')
+    plt.plot(EPSILON_VALUES, affected_non_target_labels, label='target {0} other labels affected'.format(target_label), color='blue')
+    plt.plot(EPSILON_VALUES, lazy_attack_flipped_labels, label='target {0} lazy attack'.format(target_label), color='red')
+    plt.plot(EPSILON_VALUES, lazy_attack_affected_non_target_labels, label='target {0} other labels affected'.format(target_label),color='red')
+    plt.xlabel("Epsilon")
+    plt.ylabel("Successful label flips per 128")
+    plt.legend()
+    plt.savefig('test.png')
+    # PLOT_COUNTER += 1
 
