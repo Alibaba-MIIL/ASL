@@ -43,13 +43,17 @@ In a typical multi-label setting, a picture contains on average few positive lab
 <!--</table>-->
 </p>
 
+## 24/10/2021 Update - New article released, extending ASL to partial labeling scenerio
+Checkout our new article, [Multi-label Classification with Partial Annotations using Class-aware Selective Loss](https://github.com/Alibaba-MIIL/PartialLabelingCSL), where we presnet a top solution
+to multi-label datasets which are using partial annotation (such as Open Images and LVIS).
+
 ## 24/7/2021 Update - ASL article was accepeted to ICCV 2021
 A final version of the paper, with updated results for ImageNet-21K pretraining, is released to arxiv.  
 Note that ASL is becoming the de-facto 'default' loss for high performance multi-label classification, and all the top results in papers-with-code are currently using it.
 
-## 23/4/2021 Update - ImageNet21K Pretraining
-In a new [article](https://github.com/Alibaba-MIIL/ImageNet21K) we released, we share pretrain weights for different models, that dramatically outperfrom standard pretraining on downstream tasks, including multi-label ones.  
-We also compare in the article multi-label pretrianing with ASL on ImageNet21K to pretraining with standard loss functions (cross-entropy and focal loss).
+<!--## 23/4/2021 Update - ImageNet21K Pretraining-->
+<!--In a new [article](https://github.com/Alibaba-MIIL/ImageNet21K) we released, we share pretrain weights for different models, that dramatically outperfrom standard pretraining on downstream tasks, including multi-label ones.  -->
+<!--We also compare in the article multi-label pretrianing with ASL on ImageNet21K to pretraining with standard loss functions (cross-entropy and focal loss).-->
 
 ## Training Code Now Available !
 
