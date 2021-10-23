@@ -44,7 +44,7 @@ In a typical multi-label setting, a picture contains on average few positive lab
 </p>
 
 ## 24/10/2021 Update - New article released, extending ASL to partial labeling scenerio
-Checkout our new article, [Multi-label Classification with Partial Annotations using Class-aware Selective Loss](https://github.com/Alibaba-MIIL/PartialLabelingCSL), where we presnet a top solution
+Checkout our new project, [Multi-label Classification with Partial Annotations using Class-aware Selective Loss](https://github.com/Alibaba-MIIL/PartialLabelingCSL), where we presnet a top solution
 to multi-label datasets which are using partial annotation (such as Open Images and LVIS).
 
 ## 24/7/2021 Update - ASL article was accepeted to ICCV 2021
