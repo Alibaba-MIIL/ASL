@@ -26,7 +26,8 @@ model = models.resnet18(pretrained=True).to(device)
 model.eval()
 
 # preprocessing of images
-normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],                                std=[0.229, 0.224, 0.225])
+normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], 
+	std=[0.229, 0.224, 0.225])
 transform = transforms.Compose([
 	transforms.RandomResizedCrop(224),
     transforms.ToTensor(),
