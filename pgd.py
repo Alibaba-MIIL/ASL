@@ -9,7 +9,7 @@ softmax = nn.Softmax(dim=1)
 
 
 
-def create_targeted_adversarial_examples(model, images, target, target_ids=None, eps=0.3, alpha=2/255, iters=40, device='cuda'):
+def create_targeted_adversarial_examples(model, images, target, target_ids=None, eps=0.3, alpha=2/255, iters=10, device='cuda'):
     
     images = images.to(device)
     target = target.to(device).float()
