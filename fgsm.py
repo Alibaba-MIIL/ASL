@@ -36,7 +36,7 @@ def mi_fgsm(model, images, target, eps=0.3, iters=10, device='cuda'):
 	    g = mu * g + new_g
 
 	    # perform the step, and detach because otherwise gradients get messed up.
-	    images = (images - alpha * new_g.sign()).detach_()
+	    images = (images - alpha * g.sign()).detach_()
 
     # clamp the output
 	images = torch.clamp(images, min=0, max=1)

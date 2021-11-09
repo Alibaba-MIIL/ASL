@@ -12,6 +12,7 @@ from fgsm import fgsm, mi_fgsm
 import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
+from mldeepfool import ml_deep_fool
 from sklearn.metrics import auc
 from src.helper_functions.helper_functions import mAP, CocoDetection, CocoDetectionFiltered, CutoutPIL, ModelEma, add_weight_decay
 
@@ -58,7 +59,7 @@ data_path = '{0}/val2014'.format(args.data)
 ################ EXPERIMENT DETAILS ########################
 
 NUMBER_OF_BATCHES = 8
-EPSILON_VALUES = [0.001, 0.003, 0.005, 0.01, 0.03, 0.05, 0.1]
+# EPSILON_VALUES = [0.001, 0.003, 0.005, 0.01, 0.03, 0.05, 0.1]
 
 ########################## EXPERIMENT LOOP #####################
 
@@ -76,7 +77,7 @@ data_loader = torch.utils.data.DataLoader(
     dataset, batch_size=args.batch_size, shuffle=True,
     num_workers=args.workers, pin_memory=True)
 
-results = [0,0,0]
+results = [0,0,0,0]
 
 for i, (tensor_batch, labels) in enumerate(data_loader):
     tensor_batch = tensor_batch.to(device)
@@ -91,11 +92,13 @@ for i, (tensor_batch, labels) in enumerate(data_loader):
     pgd_adv = create_targeted_adversarial_examples(model, tensor_batch, target, eps=0.03, device="cuda")
     fgsm_adv = fgsm(model, tensor_batch, target, eps=0.03, device='cuda')
     mi_fgsm_adv = mi_fgsm(model, tensor_batch, target, eps=0.03, device='cuda')
+    ml_deep_fool_adv = ml_deep_fool(model, tensor_batch, target, iterations=40)
 
     # do inference
     pred_pgd = torch.sigmoid(model(pgd_adv)) > args.th
     pred_fgsm = torch.sigmoid(model(fgsm_adv)) > args.th
     pred_mi_fgsm = torch.sigmoid(model(mi_fgsm_adv)) > args.th
+    pred_ml_deep_fool = torch.sigmoid(model(ml_deep_fool_adv)) > args.th
 
    	# PGD attack accuracy
     results[0] += ((args.batch_size - pred_pgd.int().sum(dim=1).count_nonzero()) / (args.batch_size * NUMBER_OF_BATCHES)).item()
@@ -106,7 +109,10 @@ for i, (tensor_batch, labels) in enumerate(data_loader):
     # MI-FGSM attack accuracy
     results[2] += ((args.batch_size - pred_mi_fgsm.int().sum(dim=1).count_nonzero()) / (args.batch_size * NUMBER_OF_BATCHES)).item()
 
-print(results) # format is [PGD, FGSM, MI-FGSM]
+    # MI-FGSM attack accuracy
+    results[3] += ((args.batch_size - pred_ml_deep_fool.int().sum(dim=1).count_nonzero()) / (args.batch_size * NUMBER_OF_BATCHES)).item()
+
+print(results) # format is [PGD, FGSM, MI-FGSM, ML-DeepFool]
 
 
 
