@@ -2,7 +2,7 @@ import numpy as np
 import logging
 import torch
 
-def ml_deep_fool(model, x, target, iterations=40, **kwargs):
+def ml_deep_fool(model, x, pred, target, iterations=40, **kwargs):
     clip_max = 1
     clip_min = 0
     x_shape = x.shape[1:]
@@ -11,10 +11,10 @@ def ml_deep_fool(model, x, target, iterations=40, **kwargs):
     num_instaces = target.shape[0]
 
     x = x.detach().cpu().numpy()
-    target = target.detach().cpu().numpy()
+    _, A_pos, A_neg, B_pos, B_neg = get_target_set(pred.detach().cpu().numpy(), target.detach().cpu().numpy())
+    y_target = A_pos + A_neg
     x_t = torch.FloatTensor(x)
-    target_t = torch.FloatTensor(target)
-
+    target_t = torch.FloatTensor(y_target)
     if torch.cuda.is_available():
         model = model.cuda()
         x_t = x_t.cuda()
@@ -106,7 +106,7 @@ def ml_deep_fool(model, x, target, iterations=40, **kwargs):
 
     adv_x = np.clip(best_adv_x, clip_min, clip_max)
 
-    return torch.tensor(best_adv_x).cuda()
+    return torch.tensor(adv_x).cuda()
 
 def get_jacobian(model, x, noutputs):
     num_instaces = x.size()[0]
@@ -128,3 +128,13 @@ def get_jacobian(model, x, noutputs):
     jac = np.asarray(jac)
     y = y.cpu().detach().numpy()
     return jac, y
+
+def get_target_set(y, y_target):
+    y[y == 0] = -1
+    A_pos = np.logical_and(np.not_equal(y, y_target), y == 1) + 0
+    A_neg = np.logical_and(np.not_equal(y, y_target), y == -1) + 0
+    B_pos = np.logical_and(np.equal(y, y_target), y == 1) + 0
+    B_neg = np.logical_and(np.equal(y, y_target), y == -1) + 0
+
+    y_tor = A_pos * -2 + -1 * B_neg + 1 * B_pos + 2 * A_neg
+    return y_tor, A_pos, A_neg, B_pos, B_neg

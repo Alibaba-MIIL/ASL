@@ -27,7 +27,7 @@ def mi_fgsm(model, images, target, eps=0.3, iters=10, device='cuda'):
 
 	    model.zero_grad()
 	    cost = loss(outputs, target)
-	    cost.backward()
+	    cost.backward(retain_graph=True)
 
 	    # normalize the gradient
 	    new_g = images.grad / torch.sum(torch.abs(images.grad))
@@ -48,11 +48,13 @@ def mi_fgsm(model, images, target, eps=0.3, iters=10, device='cuda'):
 def fgsm(model, images, target, eps=0.3, device='cuda'):
     
     # put tensors on the GPU
-	images = images.to(device)
+	images = images.to(device).detach()
 	target = target.to(device).float()
 	model = model.to(device)
 	loss = nn.BCELoss()
 	images.requires_grad = True
+
+	# print(torch.cuda.memory_summary(device=None, abbreviated=False))
 
 	# USE SIGMOID FOR MULTI-LABEL CLASSIFIER!
 	outputs = sigmoid(model(images)).to(device)

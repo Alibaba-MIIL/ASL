@@ -131,7 +131,7 @@ for target_label_id, target_label in enumerate(TARGET_LABELS):
             elif args.attack_type == 'MI-FGSM':
                 adversarials = mi_fgsm(model, tensor_batch, target, eps=epsilon, device='cuda')
             else:
-                print("Unkown attack")
+                print("Unknown attack")
 
             # Another inference after the attack
             pred_after_attack = (torch.sigmoid(model(adversarials)) > args.th).int()
