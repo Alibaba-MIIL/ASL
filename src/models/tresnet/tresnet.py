@@ -5,7 +5,24 @@ from collections import OrderedDict
 from src.models.tresnet.layers.anti_aliasing import AntiAliasDownsampleLayer
 from .layers.avg_pool import FastAvgPool2d
 from .layers.general_layers import SEModule, SpaceToDepthModule
-from inplace_abn import InPlaceABN
+from inplace_abn import InPlaceABN, ABN
+
+
+def InplacABN_to_ABN(module: nn.Module) -> nn.Module:
+    # convert all InplaceABN layer to bit-accurate ABN layers.
+    if isinstance(module, InPlaceABN):
+        module_new = ABN(module.num_features, activation=module.activation,
+                         activation_param=module.activation_param)
+        for key in module.state_dict():
+            module_new.state_dict()[key].copy_(module.state_dict()[key])
+        module_new.training = module.training
+        module_new.weight.data = module_new.weight.abs() + module_new.eps
+        return module_new
+    for name, child in reversed(module._modules.items()):
+        new_child = InplacABN_to_ABN(child)
+        if new_child != child:
+            module._modules[name] = new_child
+    return module
 
 class bottleneck_head(nn.Module):
     def __init__(self, num_features, num_classes, bottleneck_features=200):
