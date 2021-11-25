@@ -33,6 +33,8 @@ def pgd(model, images, target, target_ids=None, eps=0.3, alpha=2/255, iters=40, 
         else:
             cost = loss(outputs, target)
         cost.backward()
+
+        print("BACKPROPAGATED!")
         # plot_grad_flow(model.named_parameters())
 
         # perform the step

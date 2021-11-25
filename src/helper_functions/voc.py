@@ -202,7 +202,7 @@ class Voc2007Classification(data.Dataset):
                         continue
 
                 if label_indices_negative is not None:                
-                    if sum(target[label_indices_negative]) != 0:
+                    if int(sum(target[label_indices_negative])) != 0:
                         continue
 
                 self.train_data.append(img_path)

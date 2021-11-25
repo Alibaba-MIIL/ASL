@@ -11,8 +11,7 @@ def ml_deep_fool(model, x, pred, target, iterations=40, **kwargs):
     num_instaces = target.shape[0]
 
     x = x.detach().cpu().numpy()
-    _, A_pos, A_neg, B_pos, B_neg = get_target_set(pred.detach().cpu().numpy(), target.detach().cpu().numpy())
-    y_target = A_pos + A_neg
+    y_target = get_target_label(pred.detach().cpu().numpy(), target.detach().cpu().numpy())
     x_t = torch.FloatTensor(x)
     target_t = torch.FloatTensor(y_target)
     if torch.cuda.is_available():
