@@ -6,15 +6,19 @@ from src.models import create_model
 import argparse
 import matplotlib
 import torchvision.transforms as transforms
-from attacks import pgd, mi_fgsm, fgsm, ml_cw, ml_deep_fool, ml_lp
 # matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
+from attacks import pgd, fgsm, mi_fgsm, differentiable_threshold
 from sklearn.metrics import auc
 from src.helper_functions.helper_functions import mAP, CocoDetection, CocoDetectionFiltered, CutoutPIL, ModelEma, add_weight_decay
 from src.helper_functions.voc import Voc2007Classification
+from create_model import create_q2l_model
+from src.helper_functions.nuswide_asl import NusWideFiltered
 
-output = torch.tensor([[1.6, 0.9, -1.4]])
-prob = torch.sigmoid(output)
-print(prob)
+output = torch.tensor([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8])
+target = torch.tensor([1, 0, 1, 1, 1, 1, 1, 0])
+threshold = 0.5
+
+print(differentiable_threshold(output, threshold, target))

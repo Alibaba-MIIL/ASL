@@ -16,14 +16,30 @@ from multiprocessing import Pool
 sigmoid = nn.Sigmoid()
 softmax = nn.Softmax(dim=1)
 
+def differentiable_threshold(x, threshold, target):
+
+    # Perform thresholding
+    y = x - threshold
+    y = -100 * y
+    y = 1 + torch.exp(y)
+    y = (2 * target - 1) / y
+    y = torch.max((2 * target - 1) * x, y)
+
+    # Mirror back the confidences for target=0 
+    y = (2 * target - 1) * y
+
+    return y
 
 
-def pgd(model, images, target, target_ids=None, eps=0.3, alpha=2/255, iters=40, device='cuda'):
+
+
+
+def pgd(model, images, target, weights=None, threshold=None, target_ids=None, eps=0.3, alpha=2/255, iters=40, device='cuda'):
     
     images = images.to(device).detach()
     target = target.to(device).float().detach()
     model = model.to(device)
-    loss = nn.BCELoss()
+    loss = nn.BCELoss(weight=weights.cuda() if weights else None)
 
     ori_images = images.data.to(device)
         
@@ -35,15 +51,19 @@ def pgd(model, images, target, target_ids=None, eps=0.3, alpha=2/255, iters=40, 
         model.zero_grad()
         cost = 0
 
-        print("almost BACKPROPAGATED")
+        if threshold:
+            print("######################################################################################3")
+            print(outputs[0])
+            outputs = differentiable_threshold(outputs, threshold, target)
+            print("Perform threshold!")
+            print(outputs[0])
+            print("######################################################################################3")
 
         if target_ids:
             cost = loss(outputs[:, target_ids], target[:, target_ids].detach())
         else:
             cost = loss(outputs, target)
         cost.backward()
-
-        print("BACKPROPAGATED!")
 
         # plot_grad_flow(model.named_parameters())
 
@@ -811,3 +831,4 @@ def mosek_inner_point_solver(A, output, y_target, threshold_value, r_change):
             else:
                 print("Other solution status")
     return result
+

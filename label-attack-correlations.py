@@ -23,23 +23,23 @@ parser = argparse.ArgumentParser(description='label attack correlations')
 
 
 # MSCOCO 2014
-# parser.add_argument('data', metavar='DIR', help='path to dataset', default='coco')
-# parser.add_argument('attack_type', type=str, default='PGD')
-# parser.add_argument('--model_path', type=str, default='./tresnetm-asl-coco-epoch80')
-# parser.add_argument('--model_name', type=str, default='tresnet_m')
-# parser.add_argument('--num-classes', default=80)
-# parser.add_argument('--dataset_type', type=str, default='MSCOCO 2014')
-# parser.add_argument('--image-size', default=224, type=int, metavar='N', help='input image size (default: 448)')
+parser.add_argument('data', metavar='DIR', help='path to dataset', default='coco')
+parser.add_argument('attack_type', type=str, default='PGD')
+parser.add_argument('--model_path', type=str, default='./models/tresnetl-asl-mscoco-epoch80')
+parser.add_argument('--model_name', type=str, default='tresnet_l')
+parser.add_argument('--num-classes', default=80)
+parser.add_argument('--dataset_type', type=str, default='MSCOCO 2014')
+parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
 
 
 # PASCAL VOC2007
-parser.add_argument('data', metavar='DIR', help='path to dataset', default='../VOC2007')
-parser.add_argument('attack_type', type=str, default='PGD')
-parser.add_argument('--model-path', default='./models/tresnetxl-asl-voc-epoch80', type=str)
-parser.add_argument('--model_name', type=str, default='tresnet_xl')
-parser.add_argument('--num-classes', default=20)
-parser.add_argument('--dataset_type', type=str, default='PASCAL VOC2007')
-parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
+# parser.add_argument('data', metavar='DIR', help='path to dataset', default='../VOC2007')
+# parser.add_argument('attack_type', type=str, default='PGD')
+# parser.add_argument('--model-path', default='./models/tresnetxl-asl-voc-epoch80', type=str)
+# parser.add_argument('--model_name', type=str, default='tresnet_xl')
+# parser.add_argument('--num-classes', default=20)
+# parser.add_argument('--dataset_type', type=str, default='PASCAL VOC2007')
+# parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
 
 
 # IMPORTANT PARAMETERS!
@@ -61,10 +61,9 @@ model.load_state_dict(model_state["state_dict"])
 model.eval()
 
 
-
 ################ EXPERIMENT DETAILS ########################
 
-NUMBER_OF_BATCHES = 25
+NUMBER_OF_BATCHES = 20
 epsilon = 0.01
 TARGET_LABELS = [x for x in range(args.num_classes)]
 

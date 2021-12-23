@@ -6,7 +6,7 @@ from src.models import create_model
 import argparse
 import matplotlib
 import torchvision.transforms as transforms
-from pgd import create_targeted_adversarial_examples
+from attacks import pgd, mi_fgsm, fgsm, ml_cw, ml_deep_fool
 # matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -21,10 +21,10 @@ parser = argparse.ArgumentParser(description='ASL MS-COCO Inference on a single 
 
 # MSCOCO 2014
 parser.add_argument('data', metavar='DIR', help='path to dataset', default='coco')
-parser.add_argument('--model_path', type=str, default='./tresnetm-asl-coco-epoch80')
+parser.add_argument('--model_path', type=str, default='./models/tresnetl-asl-mscoco-epoch80')
 parser.add_argument('--model_name', type=str, default='tresnet_l')
 parser.add_argument('--num-classes', default=80)
-parser.add_argument('--dataset_type', type=str, default='MSCOCO 2014')
+parser.add_argument('--dataset_type', type=str, default='MSCOCO2014')
 parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
 
 # PASCAL VOC2007
@@ -47,7 +47,7 @@ parser.add_argument('--image-size', default=448, type=int, metavar='N', help='in
 parser.add_argument('--th', type=float, default=0.5)
 
 
-parser.add_argument('-b', '--batch-size', default=1, type=int,
+parser.add_argument('-b', '--batch-size', default=4, type=int,
                     metavar='N', help='mini-batch size (default: 16)')
 parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                     help='number of data loading workers (default: 16)')
@@ -64,19 +64,18 @@ model_state = torch.load(args.model_path, map_location='cpu')
 model.load_state_dict(model_state["state_dict"])
 model.eval()
 
-
 # Load the data
 instances_path = os.path.join(args.data, 'annotations/instances_train2014.json')
 # data_path_train = args.data
 data_path = '{0}/train2014'.format(args.data)
 
-NUMBER_OF_BATCHES = 64
+NUMBER_OF_BATCHES = 25
 
 confidences = np.zeros((args.num_classes))
 
-for target_label in range(80):
+for target_label in range(80):   
 
-    if args.dataset_type == 'MSCOCO 2014':
+    if args.dataset_type == 'MSCOCO2014':
 
         instances_path = os.path.join(args.data, 'annotations/instances_train2014.json')
         data_path = '{0}/train2014'.format(args.data)
@@ -87,7 +86,7 @@ for target_label in range(80):
                                         transforms.Resize((args.image_size, args.image_size)),
                                         transforms.ToTensor(),
                                         # normalize, # no need, toTensor does normalization
-                                    ]))
+                                    ]), label_indices_negative=np.array([target_label]))
 
     elif args.dataset_type == 'PASCAL VOC2007':
 
@@ -95,7 +94,7 @@ for target_label in range(80):
                                         transform=transforms.Compose([
                         transforms.Resize((args.image_size, args.image_size)),
                         transforms.ToTensor(),
-                    ]), train=True)
+                    ]), train=True, label_indices_negative=np.array([target_label]))
 
     elif args.dataset_type == 'NUS_WIDE':
 
@@ -103,6 +102,9 @@ for target_label in range(80):
                             transforms.Resize((args.image_size, args.image_size)),
                             transforms.ToTensor()])
         )
+
+    else:
+        raise RuntimeError()
 
     # Pytorch Data loader
     data_loader = torch.utils.data.DataLoader(
@@ -120,9 +122,10 @@ for target_label in range(80):
         confidences[target_label] += torch.sigmoid(prediction[:, target_label]).sum() / (args.batch_size * NUMBER_OF_BATCHES)
 
 
-plt.bar(range(80), confidences)
+plt.bar(range(args.num_classes), confidences)
 plt.xlabel("Label index")
-plt.ylabel("Class confidence")
-plt.title("Average class confidences in negative samples")
-# plt.savefig('average-confidences.png')
+plt.ylabel("Confidence")
+plt.title("Average class confidences on negative samples")
+plt.savefig("class-confidences-{0}.pdf".format(args.dataset_type))
 # print(np.argsort(confidences * -1))
+plt.show()

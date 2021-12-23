@@ -10,7 +10,7 @@ import torch.utils.data.distributed
 import torchvision.transforms as transforms
 import os
 from src.helper_functions.voc import Voc2007Classification
-
+from src.helper_functions.nuswide_asl import NusWideFiltered
 from src.helper_functions.helper_functions import mAP, AverageMeter, CocoDetection
 from src.models import create_model
 import numpy as np
@@ -18,22 +18,28 @@ import numpy as np
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 
 # MSCOCO2014
-parser.add_argument('data', metavar='DIR', help='path to dataset')
-parser.add_argument('--model-name', default='tresnet_l')
-parser.add_argument('--model-path', default='./MS_COCO_TRresNet_L_448_86.6.pth', type=str)
-parser.add_argument('--num-classes', default=80)
+# parser.add_argument('data', metavar='DIR', help='path to dataset')
+# parser.add_argument('--model-name', default='tresnet_l')
+# parser.add_argument('--model-path', default='./models/tresnetl-asl-mscoco-epoch80', type=str)
+# parser.add_argument('--num-classes', default=80)
 
 # PASCAL VOC2007
-# parser.add_argument('data', metavar='DIR', help='path to dataset', default='../VOC2007')
-# parser.add_argument('--model-name', default='tresnet_xl')
-# parser.add_argument('--model-path', default='./tresnetxl-asl-voc-epoch80', type=str)
-# parser.add_argument('--num-classes', default=20)
+parser.add_argument('data', metavar='DIR', help='path to dataset', default='../VOC2007')
+parser.add_argument('--model-name', default='tresnet_xl')
+parser.add_argument('--model-path', default='./models/tresnetxl-asl-voc-epoch80', type=str)
+parser.add_argument('--num-classes', default=20)
+
+# NUS_WIDE
+# parser.add_argument('data', metavar='DIR', help='path to dataset', default='../NUS_WIDE')
+# parser.add_argument('--model_path', type=str, default='./models/tresnetl-asl-nuswide-epoch80')
+# parser.add_argument('--model_name', type=str, default='tresnet_l')
+# parser.add_argument('--num-classes', default=81)
+# parser.add_argument('--dataset_type', type=str, default='NUS_WIDE')
 
 
+parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
 parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                     help='number of data loading workers (default: 16)')
-parser.add_argument('--image-size', default=448, type=int,
-                    metavar='N', help='input image size (default: 448)')
 parser.add_argument('--thre', default=0.5, type=float,
                     metavar='N', help='threshold value')
 parser.add_argument('-b', '--batch-size', default=8, type=int,
@@ -51,39 +57,47 @@ def main():
     state = torch.load(args.model_path, map_location='cpu')
     args.do_bottleneck_head = False
     model = create_model(args).cuda()
-    # model_state = torch.load(args.model_path, map_location='cpu')
-    # model.load_state_dict(model_state["state_dict"])
-    state = torch.load(args.model_path, map_location='cpu')
-    filtered_dict = {k: v for k, v in state['model'].items() if
-                     (k in model.state_dict() and 'head.fc' not in k)}
-    model.load_state_dict(filtered_dict, strict=False)
+
+    # loading model my way
+    model_state = torch.load(args.model_path, map_location='cpu')
+    model.load_state_dict(model_state["state_dict"])
+
+    # loading model asl way
+    # state = torch.load(args.model_path, map_location='cpu')
+    # filtered_dict = {k: v for k, v in state['model'].items() if
+    #                  (k in model.state_dict() and 'head.fc' not in k)}
+    # model.load_state_dict(filtered_dict, strict=False)
     model.eval()
     # classes_list = np.array(list(state['idx_to_class'].values()))
     print('done\n')
 
+    # val_nus = NusWideFiltered('val', transform=transforms.Compose([
+    #                     transforms.Resize((args.image_size, args.image_size)),
+    #                     transforms.ToTensor()])
+    # )
 
     # MSCOCO loading code
-    normalize = transforms.Normalize(mean=[0, 0, 0],
-                                     std=[1, 1, 1])
+    # normalize = transforms.Normalize(mean=[0, 0, 0],
+    #                                  std=[1, 1, 1])
 
-    instances_path = os.path.join(args.data, 'annotations/instances_val2014.json')
-    data_path = os.path.join(args.data, 'val2014')
-    val_coco = CocoDetection(data_path,
-                                instances_path,
-                                transforms.Compose([
-                                    transforms.Resize((args.image_size, args.image_size)),
-                                    transforms.ToTensor(),
-                                    normalize,
-                                ]))
+    # instances_path = os.path.join(args.data, 'annotations/instances_val2014.json')
+    # data_path = os.path.join(args.data, 'val2014')
+    # val_coco = CocoDetection(data_path,
+    #                             instances_path,
+    #                             transforms.Compose([
+    #                                 transforms.Resize((args.image_size, args.image_size)),
+    #                                 transforms.ToTensor(),
+    #                                 normalize,
+    #                             ]))
 
-    # val_voc = Voc2007Classification('test', transform=transform = transforms.Compose([
-    #                             transforms.Resize((args.image_size, args.image_size)),
-    #                             transforms.ToTensor(),
-    #                         ]), train=False)
+    val_voc = Voc2007Classification('test', transform=transforms.Compose([
+                                transforms.Resize((args.image_size, args.image_size)),
+                                transforms.ToTensor(),
+                            ]), train=False)
 
-    print("len(val_dataset)): ", len(val_coco))
+    print("len(val_dataset)): ", len(val_voc))
     val_loader = torch.utils.data.DataLoader(
-        val_coco, batch_size=args.batch_size, shuffle=False,
+        val_voc, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
 
     validate_multi(val_loader, model, args)
@@ -104,7 +118,7 @@ def validate_multi(val_loader, model, args):
     targets = []
     for i, (input, target) in enumerate(val_loader):
         target = target
-        target = target.max(dim=1)[0]
+        # target = target.max(dim=1)[0]
         # compute output
         with torch.no_grad():
             output = Sig(model(input.cuda())).cpu()
