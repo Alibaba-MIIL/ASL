@@ -17,36 +17,29 @@ Official PyTorch Implementation
 
 In a typical multi-label setting, a picture contains on average few positive labels, and many negative ones. This positive-negative imbalance dominates the optimization process, and can lead to under-emphasizing gradients from positive labels during training, resulting in poor accuracy. In this paper, we introduce a novel asymmetric loss ("ASL"), which operates differently on positive and negative samples. The loss enables to dynamically down-weights and hard-thresholds easy negative samples, while also discarding possibly mislabeled samples. We demonstrate how ASL can balance the probabilities of different samples, and how this balancing is translated to better mAP scores. With ASL, we reach state-of-the-art results on multiple popular multi-label datasets: MS-COCO, Pascal-VOC, NUS-WIDE and Open Images. We also demonstrate ASL applicability for other tasks, such as single-label classification and object detection. ASL is effective, easy to implement, and does not increase the training time or complexity.
 
-<p align="center">
- <table class="tg">
-  <tr>
-    <td class="tg-c3ow"><img src="./pics/loss_graph.png" align="center" width="400" ></td>
-    <td class="tg-c3ow"><img src="./pics/backbones.png" align="center" width="400" ></td>
-  </tr>
-</table>
-</p>
-
 <!--<p align="center">-->
 <!-- <table class="tg">-->
 <!--  <tr>-->
-<!--    <td class="tg-c3ow"><img src="./pics/ASL_comparison.png" align="center" width="400" ></td>-->
-<!--    <td class="tg-c3ow"><img src="./pics/detection.png" align="center" width="400" ></td>-->
+<!--    <td class="tg-c3ow"><img src="./pics/loss_graph.png" align="center" width="400" ></td>-->
+<!--    <td class="tg-c3ow"><img src="./pics/backbones.png" align="center" width="400" ></td>-->
 <!--  </tr>-->
 <!--</table>-->
 <!--</p>-->
 
-<!--<p align="center">-->
-<!-- <table class="tg">-->
-<!--  <tr>-->
-<!--    <td class="tg-c3ow"><img src="./pics/herbarium.png" align="center" width="400" ></td>-->
-<!--    <td class="tg-c3ow"><img src="./pics/open_images.png" align="center" width="400" ></td>-->
-<!--  </tr>-->
-<!--</table>-->
-</p>
 
-## 24/10/2021 Update - New article released, extending ASL to partial labeling scenerio
-Checkout our new project, [Multi-label Classification with Partial Annotations using Class-aware Selective Loss](https://github.com/Alibaba-MIIL/PartialLabelingCSL), where we presnet a top solution
-to multi-label datasets which are using partial annotation (such as Open Images and LVIS).
+## 29/11/2021 Update - New article released, offering new classification head with state-of-the-art results
+Checkout our new project, [Ml-Decoder](https://github.com/Alibaba-MIIL/ML_Decoder), which presents a unified classification head for multi-label, single-label and
+zero-shot tasks. Backbones with ML-Decoder reach SOTA results, while also improving speed-accuracy tradeoff.
+
+<p align="center">
+ <table class="tg">
+  <tr>
+    <td class="tg-c3ow"><img src="./pics/main_pic.png" align="center" width="300""></td>
+    <td class="tg-c3ow"><img src="./pics/ms_coco_scores.png" align="center" width="300" ></td>
+
+  </tr>
+</table>
+</p>
 
 ## 24/7/2021 Update - ASL article was accepeted to ICCV 2021
 A final version of the paper, with updated results for ImageNet-21K pretraining, is released to arxiv.  
