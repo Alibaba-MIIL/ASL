@@ -18,7 +18,7 @@ from create_model import create_q2l_model
 from src.helper_functions.nuswide_asl import NusWideFiltered
 
 output = torch.tensor([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8])
-target = torch.tensor([1, 0, 1, 1, 1, 1, 1, 0])
-threshold = 0.5
+target = torch.tensor([0, 0, 0, 0, 1, 1, 1, 1])
+threshold = 0.2
 
 print(differentiable_threshold(output, threshold, target))

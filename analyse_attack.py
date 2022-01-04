@@ -10,12 +10,17 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
-from attacks import pgd, fgsm, mi_fgsm, MLALoss
+from attacks import pgd, fgsm, mi_fgsm
 from sklearn.metrics import auc
 from src.helper_functions.helper_functions import mAP, CocoDetection, CocoDetectionFiltered, CutoutPIL, ModelEma, add_weight_decay
 from src.helper_functions.voc import Voc2007Classification
 from create_model import create_q2l_model
 from src.helper_functions.nuswide_asl import NusWideFiltered
+
+def get_weight_distribution(rankings, number_of_groups, max_weight_deviation_percentage):
+    weight_groups = np.array([int(rankings.index(label) / (len(rankings) / number_of_groups)) for label in range(len(rankings))])
+    weights = 1 - (weight_groups - ((number_of_groups - 1) / 2)) / max_weight_deviation_percentage
+    return torch.tensor(weights)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # USE GPU
 
@@ -117,14 +122,8 @@ data_loader = torch.utils.data.DataLoader(
 
 ################ EXPERIMENT VARIABLES ########################
 
-NUMBER_OF_SAMPLES = 100
-# TARGET_LABELS = [0, 1, 11, 56, 78, 79]
-EPSILON_VALUES = [0.001, 0.003, 0.005, 0.01, 0.03, 0.05, 0.1]
-# EPSILON_VALUES = [0.05]
-# zero for each epsion value
-weight_distributions = []
-
-flipped_labels = np.zeros((5, len(EPSILON_VALUES)))
+NUMBER_OF_SAMPLES = 10
+flipped_labels = np.zeros((2, 20))
 
 #############################  EXPERIMENT LOOP #############################
 
@@ -144,17 +143,15 @@ for i, (tensor_batch, labels) in enumerate(data_loader):
         target = ~target
 
     # process a batch and add the flipped labels for every epsilon
-    for epsilon_index, epsilon in enumerate(EPSILON_VALUES):
+    for i in range(20):
 
         # for wdi, weight_distribution in enumerate(weight_distributions):
 
         # perform the attack
         if args.attack_type == 'PGD':
-            adversarials0 = pgd(model, tensor_batch, target, rankings=rankings, weight_params=(1,5), eps=epsilon, device="cuda")
-            adversarials1 = pgd(model, tensor_batch, target, rankings=rankings, weight_params=(3,5), eps=epsilon, device="cuda")
-            adversarials2 = pgd(model, tensor_batch, target, rankings=rankings, weight_params=(5,5), eps=epsilon, device="cuda")
-            adversarials3 = pgd(model, tensor_batch, target, rankings=rankings, weight_params=(7,5), eps=epsilon, device="cuda")
-            # adversarials4 = pgd(model, tensor_batch, target, loss_function=MLALoss(16), eps=epsilon, device="cuda")
+            adversarials0 = pgd(model, tensor_batch, target, eps=0.01, iters=i+20, device="cuda")
+            adversarials1 = pgd(model, tensor_batch, target, cut_off_threshold=0.35, eps=0.01, iters=i+20, device="cuda")
+
         elif args.attack_type == 'FGSM':
             adversarials = fgsm(model, tensor_batch, target, eps=epsilon, device='cuda')
         elif args.attack_type == 'MI-FGSM':
@@ -166,24 +163,19 @@ for i, (tensor_batch, labels) in enumerate(data_loader):
             # Another inference after the attack
             pred_after_attack0 = (torch.sigmoid(model(adversarials0)) > args.th).int()
             pred_after_attack1 = (torch.sigmoid(model(adversarials1)) > args.th).int()
-            pred_after_attack2 = (torch.sigmoid(model(adversarials2)) > args.th).int()
-            pred_after_attack3 = (torch.sigmoid(model(adversarials3)) > args.th).int()
-            # pred_after_attack4 = (torch.sigmoid(model(adversarials4)) > args.th).int()
-            flipped_labels[0, epsilon_index] += torch.sum(torch.logical_xor(pred, pred_after_attack0)).item() / (NUMBER_OF_SAMPLES)
-            flipped_labels[1, epsilon_index] += torch.sum(torch.logical_xor(pred, pred_after_attack1)).item() / (NUMBER_OF_SAMPLES)
-            flipped_labels[2, epsilon_index] += torch.sum(torch.logical_xor(pred, pred_after_attack2)).item() / (NUMBER_OF_SAMPLES)
-            flipped_labels[3, epsilon_index] += torch.sum(torch.logical_xor(pred, pred_after_attack3)).item() / (NUMBER_OF_SAMPLES)
-            # flipped_labels[4, epsilon_index] += torch.sum(torch.logical_xor(pred, pred_after_attack4)).item() / (NUMBER_OF_SAMPLES)
+            
+            flipped_labels[0, i] += torch.sum(torch.logical_xor(pred, pred_after_attack0)).item() / (NUMBER_OF_SAMPLES)
+            flipped_labels[1, i] += torch.sum(torch.logical_xor(pred, pred_after_attack1)).item() / (NUMBER_OF_SAMPLES)
 
     sample_count += args.batch_size
 
 print("sample count:", sample_count)
-print(flipped_labels)
+
 #############################  PLOT LOOP #############################
 # for i, weight_distribution in enumerate(weight_distributions):
-for i in range(4):
-    plt.plot(EPSILON_VALUES, flipped_labels[i, :]) 
-plt.xlabel("Epsilon")
+for i in range(2):
+    plt.plot([x + 20 for x in range(20)], flipped_labels[i, :]) 
+plt.xlabel("Iterations")
 plt.ylabel("Label flips")
 plt.title("{0}, {1}, ASL".format(args.dataset_type, args.attack_type))
 plt.legend()

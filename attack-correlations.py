@@ -137,6 +137,7 @@ for target_label in TARGET_LABELS:
         
 
 # PLOT
+torch.save(correlations, 'correlations-{0}.pt'.format(args.dataset_type))
 sns.heatmap(correlations)
 plt.show()
 plt.savefig("attack-correlations-{0}-{1}.png".format(args.dataset_type, args.attack_type))

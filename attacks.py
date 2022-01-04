@@ -12,14 +12,49 @@ import gc
 from multiprocessing import Pool
 
 
-
 sigmoid = nn.Sigmoid()
 softmax = nn.Softmax(dim=1)
 
-def differentiable_threshold(x, threshold, target):
+
+
+
+class MLALoss(nn.Module):
+    
+    def __init__(self, f, weight=None, size_average=True):
+        super(MLALoss, self).__init__()
+        self.f = f
+ 
+    def forward(self, x, y):        
+        
+        positive_loss = torch.max(torch.clamp(-torch.log(x), min=-100), -2*self.f * x + self.f - np.log(1/2))
+        negative_loss = torch.max(torch.clamp(-torch.log(1-x), min=-100), 2*self.f * x - self.f - np.log(1/2))
+        loss = torch.mean(y * positive_loss + (1-y) * negative_loss)
+        return loss
+
+class TweakedSigmoidLoss(nn.Module):
+    
+    def __init__(self, weight=None, size_average=True):
+        super(TweakedSigmoidLoss, self).__init__()
+
+    def forward(self, x, y):        
+        
+        positive_loss = -1 / (1 + torch.exp(-8(x - 0.4))) + 1
+        negative_loss = 1 / (1 + torch.exp(-8(x - 0.6)))
+        loss = torch.mean(y * positive_loss + (1-y) * negative_loss)
+        return loss
+
+def get_weight_distribution(rankings, target, number_of_groups, weight_deviation_step):
+    weight_groups = np.array([int(rankings.index(label) / (len(rankings) / number_of_groups)) for label in range(len(rankings))])
+    weights = (weight_groups - ((number_of_groups - 1) / 2)) / (100 / weight_deviation_step)
+    weight_tensor = torch.tensor(weights)
+    weight_tensor = 1 - weight_tensor *  (1 - 2 * target.cpu())
+    return weight_tensor
+
+
+def differentiable_threshold(x, threshold_offset, target):
 
     # Perform thresholding
-    y = x - threshold
+    y = x - (0.5 + (2 * target - 1) * threshold_offset)
     y = -100 * y
     y = 1 + torch.exp(y)
     y = (2 * target - 1) / y
@@ -31,18 +66,21 @@ def differentiable_threshold(x, threshold, target):
     return y
 
 
+def pgd(model, images, target, loss_function=None, rankings=None, weight_params=None, target_ids=None, eps=0.3, alpha=2/255, iters=40, device='cuda'):
 
 
+    weights = get_weight_distribution(rankings, torch.clone(target), weight_params[0], weight_params[1]) if rankings else torch.ones(target.shape).to(device)
 
-def pgd(model, images, target, weights=None, threshold=None, target_ids=None, eps=0.3, alpha=2/255, iters=40, device='cuda'):
-    
+    if loss_function == None:
+        loss = nn.BCELoss(weight=weights.cuda())
+    else:
+        loss = loss_function
+
     images = images.to(device).detach()
     target = target.to(device).float().detach()
     model = model.to(device)
-    loss = nn.BCELoss(weight=weights.cuda() if weights else None)
-
     ori_images = images.data.to(device)
-        
+
     for i in range(iters):    
         images.requires_grad = True
 
@@ -51,21 +89,12 @@ def pgd(model, images, target, weights=None, threshold=None, target_ids=None, ep
         model.zero_grad()
         cost = 0
 
-        if threshold:
-            print("######################################################################################3")
-            print(outputs[0])
-            outputs = differentiable_threshold(outputs, threshold, target)
-            print("Perform threshold!")
-            print(outputs[0])
-            print("######################################################################################3")
-
         if target_ids:
             cost = loss(outputs[:, target_ids], target[:, target_ids].detach())
         else:
             cost = loss(outputs, target)
-        cost.backward()
 
-        # plot_grad_flow(model.named_parameters())
+        cost.backward()
 
         # perform the step
         adv_images = images - alpha * images.grad.sign()
