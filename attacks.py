@@ -17,7 +17,7 @@ softmax = nn.Softmax(dim=1)
 
 class F1(nn.Module):
     
-    def __init__(self, weight=None, size_average=True, a=5):
+    def __init__(self, weight=None, size_average=True, a=10):
         super(F1, self).__init__()
         self.a = a
 
@@ -30,16 +30,20 @@ class F1(nn.Module):
 
 class F2(nn.Module):
     
-    def __init__(self, weight=None, size_average=True, a=6, t=0):
+    def __init__(self, weight=None, size_average=True, a=16, t=0):
         super(F2, self).__init__()
         self.a = a
         self.t = t
+        self.weight = weight
 
     def forward(self, x, y):        
         
         positive_loss = torch.maximum((-1 / (1 + torch.exp(-self.a*(x - 0.5 - self.t)))+1), -self.a*(x-self.t)*0.25 + self.a*0.125 + 0.5)
         negative_loss = torch.maximum((1 / (1 + torch.exp(-self.a*(x - 0.5 + self.t)))), self.a*(x+self.t)*0.25 - self.a*0.125 + 0.5)
-        loss = torch.mean(y * positive_loss + (1-y) * negative_loss)
+
+        if self.weight is not None:
+            loss = (y * positive_loss + (1-y) * negative_loss) * self.weight
+        loss = torch.mean(loss)
         return loss
 
 class HingeLoss(nn.Module):
@@ -102,11 +106,12 @@ def get_weight_distribution(rankings, target, number_of_groups, sigma):
     weight_tensor = 1 + sigma * weight_tensor * (1 - 2 * target.cpu().int())
     return weight_tensor
 
-def get_weights(rankings, number_of_attacked_labels, target_vector):
+def get_weights(rankings, number_of_attacked_labels, target_vector, random=False):
     weights = torch.zeros(target_vector.shape)
-    # weights[:, rankings[0:number_of_attacked_labels]] = 1
-    weights[:, np.random.permutation(target_vector.shape[1])[0:number_of_attacked_labels]] = 1
-    # print(weights)
+    if random == True:
+        weights[:, np.random.permutation(target_vector.shape[1])[0:number_of_attacked_labels]] = 1
+    else:
+        weights[:, rankings[0:number_of_attacked_labels]] = 1
     return weights
 
 
@@ -201,19 +206,15 @@ def untargeted_pgd(model, images, eps=0.3, alpha=2/255, iters=40, device='cuda')
     return images
 
 # Momentum Induced Fast Gradient Sign Method 
-def mi_fgsm(model, images, target, weight_params=None, rankings=None, loss_function=None, eps=0.3, iters=10, device='cuda'):
+def mi_fgsm(model, images, target, loss_function=torch.nn.BCELoss(), eps=0.3, iters=10, device='cuda'):
     
     # put tensors on the GPU
     images = images.to(device)
     target = target.to(device).float()
     model = model.to(device)
-    # weights = (get_weight_distribution(rankings, torch.clone(target), weight_params[0], weight_params[1]) if rankings else torch.ones(target.shape)).to(device)
-    weights = get_weights(rankings, weight_params, target).to(device)
-    # print(weights)
-    if loss_function == None:
-        loss = nn.BCELoss(weight=weights)
-    else:
-        loss = loss_function
+
+    L = loss_function
+
     alpha = eps / iters
     mu = 1.0
     g = 0
@@ -225,7 +226,7 @@ def mi_fgsm(model, images, target, weight_params=None, rankings=None, loss_funct
         outputs = sigmoid(model(images)).to(device)
 
         model.zero_grad()
-        cost = loss(outputs, target.detach())
+        cost = L(outputs, target.detach())
         cost.backward()
 
         # normalize the gradient

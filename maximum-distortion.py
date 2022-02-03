@@ -10,7 +10,7 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
-from attacks import pgd, fgsm, mi_fgsm, F1, F2, LinearLoss, HingeLoss
+from attacks import pgd, fgsm, mi_fgsm, F1, F2, LinearLoss, HingeLoss, get_weights
 from sklearn.metrics import auc
 from src.helper_functions.helper_functions import mAP, CocoDetection, CocoDetectionFiltered, CutoutPIL, ModelEma, add_weight_decay
 from src.helper_functions.voc import Voc2007Classification
@@ -53,7 +53,7 @@ parser.add_argument('--image-size', default=448, type=int, metavar='N', help='in
 
 # IMPORTANT PARAMETERS!
 parser.add_argument('--th', type=float, default=0.5)
-parser.add_argument('-b', '--batch-size', default=5, type=int,
+parser.add_argument('-b', '--batch-size', default=1, type=int,
                     metavar='N', help='mini-batch size (default: 16)')
 parser.add_argument('-j', '--workers', default=1, type=int, metavar='N',
                     help='number of data loading workers (default: 16)')
@@ -70,8 +70,7 @@ asl.eval()
 
 q2l = create_q2l_model()
 
-model = asl
-
+model = q2l
 # LOAD THE DATASET WITH DESIRED FILTER
 
 if args.dataset_type == 'MSCOCO_2014':
@@ -119,7 +118,9 @@ data_loader = torch.utils.data.DataLoader(
 
 NUMBER_OF_SAMPLES = 100
 EPSILON_VALUES = [1 / 256]
-flipped_labels = np.zeros((1, args.num_classes+1))
+amount_of_targets = [i for i in range(0,args.num_classes+1,10)]
+flipped_labels = np.zeros((4, len(amount_of_targets)))
+# flipped_labels = np.zeros((6, 1))
 
 #############################  EXPERIMENT LOOP #############################
 
@@ -141,7 +142,7 @@ for i, (tensor_batch, labels) in enumerate(data_loader):
     # process a batch and add the flipped labels for every epsilon/number of targets
 
     # for epsilon_index, epsilon in enumerate(EPSILON_VALUES):
-    for number_of_targets in range(args.num_classes+1):
+    for amount_id, number_of_targets in enumerate(amount_of_targets):
 
         # perform the attack
         if args.attack_type == 'PGD':
@@ -149,68 +150,89 @@ for i, (tensor_batch, labels) in enumerate(data_loader):
         elif args.attack_type == 'FGSM':
             pass
         elif args.attack_type == 'MI-FGSM':
-            adversarials0 = mi_fgsm(model, tensor_batch, target, weight_params=number_of_targets, rankings=rankings, eps=EPSILON_VALUES[0], device="cuda")
-            # adversarials1 = mi_fgsm(model, tensor_batch, target, loss_function=LinearLoss(), eps=epsilon, device="cuda")
-            # adversarials2 = mi_fgsm(model, tensor_batch, target, loss_function=torch.nn.MSELoss(), eps=epsilon, device="cuda")
-            # adversarials3 = mi_fgsm(model, tensor_batch, target, loss_function=torch.nn.BCELoss(), eps=epsilon, device="cuda")
+            adversarials0 = mi_fgsm(model, tensor_batch, target, loss_function=torch.nn.BCELoss(weight=get_weights(rankings, number_of_targets, target, random=True).to(device)), eps=EPSILON_VALUES[0], device="cuda")
+            adversarials1 = mi_fgsm(model, tensor_batch, target, loss_function=torch.nn.BCELoss(weight=get_weights(rankings, number_of_targets, target, random=False).to(device)), eps=EPSILON_VALUES[0], device="cuda")
+            adversarials2 = mi_fgsm(model, tensor_batch, target, loss_function=F2(weight=get_weights(rankings, number_of_targets, target, random=True).to(device)), eps=EPSILON_VALUES[0], device="cuda")
+            adversarials3 = mi_fgsm(model, tensor_batch, target, loss_function=F2(weight=get_weights(rankings, number_of_targets, target, random=False).to(device)), eps=EPSILON_VALUES[0], device="cuda")
             # adversarials4 = mi_fgsm(model, tensor_batch, target, loss_function=HingeLoss(), eps=epsilon, device="cuda")
             # adversarials5 = mi_fgsm(model, tensor_batch, target, loss_function=F2(), eps=epsilon, device="cuda")
-            # adversarials6 = mi_fgsm(model, tensor_batch, target, rankings=rankings, weight_params=70, eps=epsilon, device="cuda")
+            # adversarials6 = mi_fgsm(model, tensor_batch, target, loss_function=F2(), eps=epsilon, device="cuda")
         else:
             print("Unknown attack")
+            break
 
         with torch.no_grad():
             # Another inference after the attack
             pred_after_attack0 = (torch.sigmoid(model(adversarials0)) > args.th).int()
-            # pred_after_attack1 = (torch.sigmoid(model(adversarials1)) > args.th).int()
-            # pred_after_attack2 = (torch.sigmoid(model(adversarials2)) > args.th).int()
-            # pred_after_attack3 = (torch.sigmoid(model(adversarials3)) > args.th).int()
+            pred_after_attack1 = (torch.sigmoid(model(adversarials1)) > args.th).int()
+            pred_after_attack2 = (torch.sigmoid(model(adversarials2)) > args.th).int()
+            pred_after_attack3 = (torch.sigmoid(model(adversarials3)) > args.th).int()
             # pred_after_attack4 = (torch.sigmoid(model(adversarials4)) > args.th).int()
             # pred_after_attack5 = (torch.sigmoid(model(adversarials5)) > args.th).int()
             # pred_after_attack6 = (torch.sigmoid(model(adversarials6)) > args.th).int()
-            flipped_labels[0, number_of_targets] += torch.sum(torch.logical_xor(pred, pred_after_attack0)).item() / (NUMBER_OF_SAMPLES)
-            # flipped_labels[1, epsilon_index] += torch.sum(torch.logical_xor(pred, pred_after_attack1)).item() / (NUMBER_OF_SAMPLES)
-            # flipped_labels[2, epsilon_index] += torch.sum(torch.logical_xor(pred, pred_after_attack2)).item() / (NUMBER_OF_SAMPLES)
-            # flipped_labels[3, epsilon_index] += torch.sum(torch.logical_xor(pred, pred_after_attack3)).item() / (NUMBER_OF_SAMPLES)
+            flipped_labels[0, amount_id] += torch.sum(torch.logical_xor(pred, pred_after_attack0)).item() / (NUMBER_OF_SAMPLES)
+            flipped_labels[1, amount_id] += torch.sum(torch.logical_xor(pred, pred_after_attack1)).item() / (NUMBER_OF_SAMPLES)
+            flipped_labels[2, amount_id] += torch.sum(torch.logical_xor(pred, pred_after_attack2)).item() / (NUMBER_OF_SAMPLES)
+            flipped_labels[3, amount_id] += torch.sum(torch.logical_xor(pred, pred_after_attack3)).item() / (NUMBER_OF_SAMPLES)
             # flipped_labels[4, epsilon_index] += torch.sum(torch.logical_xor(pred, pred_after_attack4)).item() / (NUMBER_OF_SAMPLES)
             # flipped_labels[5, epsilon_index] += torch.sum(torch.logical_xor(pred, pred_after_attack5)).item() / (NUMBER_OF_SAMPLES)
             # flipped_labels[6, epsilon_index] += torch.sum(torch.logical_xor(pred, pred_after_attack6)).item() / (NUMBER_OF_SAMPLES)
 
 
+        ################################# CODE FOR VISUALISATION AND VERIFICATION ###################################################
+
+        # print(pred.int())
+        # print(pred_after_attack0)
+        # print(torch.max(torch.abs(adversarials0 - tensor_batch)))
+        # print('======================================')
+        # print(pred.int())
+        # print(pred_after_attack0)
+        # print(torch.sum(torch.logical_xor(pred, pred_after_attack0)).item())
+
+        # trans = transforms.ToPILImage()
+        # img = trans(tensor_batch[0])
+        # img2 = trans(adversarials0[0])
+        # img3 = trans(tensor_batch[0] - adversarials0[0])
+        # img.save('original.png')
+        # img2.save('adversarial.png')
+        # img3.save('perturbation.png')
+
+        # break
+
+        ##############################################################################################################################
+
     sample_count += args.batch_size
+    print(sample_count)
 
 # flipped_labels = np.insert(flipped_labels, 0, 0, axis=1)
 EPSILON_VALUES.insert(0,0)
 
 print(flipped_labels)
 
-labels = ['Sigmoid', 'Linear', 'MSE', 'BCE', 'Hinge', 'Hybrid']
 
 
 
-# #############################  PLOT LOOP #############################
+# #############################  PLOT CODE #############################
 
-plt.plot([x for x in range(args.num_classes+1)], flipped_labels[0, :]) 
+# labels = ['Sigmoid', 'Linear', 'MSE', 'BCE', 'Hinge', 'Hybrid']
+# labels = ['baseline', 'hybridloss', 'subset-attack', 'both']
+
+# print(flipped_labels[:, 0])
+# plt.bar(labels, flipped_labels[:, 0]) 
+# plt.xlabel("loss function")
+# plt.ylabel("label flips")
+# plt.title("{0}, {1}, ASL".format(args.dataset_type, args.attack_type))
+# plt.show()
+
+
+plt.plot(amount_of_targets, flipped_labels[0, :], label='BCELoss random-n-labels')
+plt.plot(amount_of_targets, flipped_labels[1, :], label='BCELoss top-n-labels')
+plt.plot(amount_of_targets, flipped_labels[2, :], label='HybridLoss random-n-labels')
+plt.plot(amount_of_targets, flipped_labels[3, :], label='HybridLoss top-n-labels')   
 plt.xlabel("number of targeted labels")
 plt.ylabel("Label flips")
-plt.title("{0}, {1}, ASL".format(args.dataset_type, args.attack_type))
-# plt.legend()
+plt.title("{0}, {1}, Q2L".format(args.dataset_type, args.attack_type))
+plt.legend()
 plt.show()
 
 
-
-# print(tensor_batch.shape)    
-# print(adversarials0.shape)
-# print(torch.max(adversarials0 - tensor_batch))
-# print(pred.int())
-# print(pred_after_attack0)
-# print(torch.sum(torch.logical_xor(pred, pred_after_attack0)).item())
-
-# trans = transforms.ToPILImage()
-# img = trans(tensor_batch[0])
-# img2 = trans(adversarials0[0])
-# img3 = trans(tensor_batch[0] - adversarials0[0])
-# img.save('original.png')
-# img2.save('adversarial.png')
-# img3.save('perturbation.png')
-# break
