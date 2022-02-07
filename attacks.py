@@ -11,102 +11,14 @@ import mosek
 import gc
 from multiprocessing import Pool
 
-
 sigmoid = nn.Sigmoid()
 softmax = nn.Softmax(dim=1)
 
-class F1(nn.Module):
-    
-    def __init__(self, weight=None, size_average=True, a=10):
-        super(F1, self).__init__()
-        self.a = a
 
-    def forward(self, x, y):        
-        
-        positive_loss = (-1 / (1 + torch.exp(-self.a*(x - 0.5)))+1)
-        negative_loss = (1 / (1 + torch.exp(-self.a*(x - 0.5))))
-        loss = torch.mean(y * positive_loss + (1-y) * negative_loss)
-        return loss
+def get_weights(flipups, flipdowns, number_of_attacked_labels, target_vector, random=False):
 
-class F2(nn.Module):
-    
-    def __init__(self, weight=None, size_average=True, a=16, t=0):
-        super(F2, self).__init__()
-        self.a = a
-        self.t = t
-        self.weight = weight
+    rankings = target_vector * flipups + (1-target_vector) * flipdowns
 
-    def forward(self, x, y):        
-        
-        positive_loss = torch.maximum((-1 / (1 + torch.exp(-self.a*(x - 0.5 - self.t)))+1), -self.a*(x-self.t)*0.25 + self.a*0.125 + 0.5)
-        negative_loss = torch.maximum((1 / (1 + torch.exp(-self.a*(x - 0.5 + self.t)))), self.a*(x+self.t)*0.25 - self.a*0.125 + 0.5)
-
-        if self.weight is not None:
-            loss = (y * positive_loss + (1-y) * negative_loss) * self.weight
-        loss = torch.mean(loss)
-        return loss
-
-class HingeLoss(nn.Module):
-    
-    def __init__(self, weight=None, size_average=True):
-        super(HingeLoss, self).__init__()
-
-    def forward(self, x, y):        
-        
-        positive_loss = torch.maximum(0*x,0.5-x)
-        negative_loss = torch.maximum(0*x,x-0.5)
-        loss = torch.mean(y * positive_loss + (1-y) * negative_loss)
-        return loss
-
-class LinearLoss(nn.Module):
-    
-    def __init__(self, weight=None, size_average=True):
-        super(LinearLoss, self).__init__()
-
-    def forward(self, x, y):        
-        
-        positive_loss = 1-x
-        negative_loss = x
-        loss = torch.mean(y * positive_loss + (1-y) * negative_loss)
-        return loss
-
-class F4(nn.Module):
-    
-    def __init__(self, weight=None, size_average=True, a=1, b=1):
-        super(F4, self).__init__()
-        self.a = a
-        self.b = b
-
-    def forward(self, x, y):        
-        
-        positive_loss = self.a * x * (-1 / (1 + torch.exp(-20*(x - 0.5))) + 1)
-        negative_loss = self.a * x * (1 / (1 + torch.exp(-20*(x - 0.5))))
-        loss = torch.mean(y * positive_loss + (1-y) * negative_loss)
-        return loss
-
-
-class F5(nn.Module):
-    
-    def __init__(self, weight=None, size_average=True, a=1):
-        super(F5, self).__init__()
-        self.a = a
- 
-    def forward(self, x, y):        
-        
-        positive_loss = torch.max(self.a * (-1 / (1 + torch.exp(-20*(x - 0.5))) + 1), -5*self.a*x + 3*self.a)
-        negative_loss = torch.max(self.a * (1 / (1 + torch.exp(-20*(x - 0.5)))), 5*self.a*x - 2*self.a)
-        loss = torch.mean(y * positive_loss + (1-y) * negative_loss)
-        return loss
-
-
-def get_weight_distribution(rankings, target, number_of_groups, sigma):
-    weight_groups = np.array([int(rankings.index(label) / (len(rankings) / number_of_groups)) for label in range(len(rankings))])
-    weight_tensor = torch.tensor(weight_groups + 1)
-    weight_tensor = weight_tensor - ((number_of_groups + 1) / 2)
-    weight_tensor = 1 + sigma * weight_tensor * (1 - 2 * target.cpu().int())
-    return weight_tensor
-
-def get_weights(rankings, number_of_attacked_labels, target_vector, random=False):
     weights = torch.zeros(target_vector.shape)
     if random == True:
         weights[:, np.random.permutation(target_vector.shape[1])[0:number_of_attacked_labels]] = 1
@@ -115,23 +27,7 @@ def get_weights(rankings, number_of_attacked_labels, target_vector, random=False
     return weights
 
 
-def differentiable_threshold(x, threshold_offset, target):
-
-    # Perform thresholding
-    y = x - (0.5 + (2 * target - 1) * threshold_offset)
-    y = -100 * y
-    y = 1 + torch.exp(y)
-    y = (2 * target - 1) / y
-    y = torch.max((2 * target - 1) * x, y)
-
-    # Mirror back the confidences for target=0 
-    y = (2 * target - 1) * y
-
-    return y
-
-
-def pgd(model, images, target, loss_function=None, rankings=None, weight_params=None, target_ids=None, eps=0.3, alpha=2/255, iters=20, device='cuda'):
-
+def pgd(model, images, target, loss_function=torch.nn.BCELoss(), eps=0.3, alpha=2/255, iters=10, device='cuda'):
 
     weights = (get_weight_distribution(rankings, torch.clone(target), weight_params[0], weight_params[1]) if rankings else torch.ones(target.shape)).to(device)
 
@@ -245,7 +141,7 @@ def mi_fgsm(model, images, target, loss_function=torch.nn.BCELoss(), eps=0.3, it
 
 
 # Fast Gradient Sign Method 
-def fgsm(model, images, target, eps=0.3, device='cuda'):
+def fgsm(model, images, target, loss_function=torch.nn.BCELoss(), eps=0.3, device='cuda'):
     
     # put tensors on the GPU
     images = images.to(device).detach()
