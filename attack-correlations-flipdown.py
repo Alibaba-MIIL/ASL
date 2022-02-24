@@ -6,22 +6,19 @@ from src.models import create_model
 import argparse
 import matplotlib
 import torchvision.transforms as transforms
+from attacks import pgd, fgsm, mi_fgsm
 # matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
-from attacks import pgd, fgsm, mi_fgsm
 from sklearn.metrics import auc
 from src.helper_functions.helper_functions import mAP, CocoDetection, CocoDetectionFiltered, CutoutPIL, ModelEma, add_weight_decay
-from src.helper_functions.voc import Voc2007Classification
-from create_model import create_q2l_model
+import seaborn as sns
 from src.helper_functions.nuswide_asl import NusWideFiltered
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # USE GPU
-
-########################## ARGUMENTS #############################################
-
 parser = argparse.ArgumentParser()
+########################## ARGUMENTS #############################################
 
 # MSCOCO 2014
 parser.add_argument('data', metavar='DIR', help='path to dataset', default='coco')
@@ -50,12 +47,11 @@ parser.add_argument('--image-size', default=448, type=int, metavar='N', help='in
 # parser.add_argument('--dataset_type', type=str, default='NUS_WIDE')
 # parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
 
-
 # IMPORTANT PARAMETERS!
 parser.add_argument('--th', type=float, default=0.5)
-parser.add_argument('-b', '--batch-size', default=1, type=int,
+parser.add_argument('-b', '--batch-size', default=5, type=int,
                     metavar='N', help='mini-batch size (default: 16)')
-parser.add_argument('-j', '--workers', default=1, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                     help='number of data loading workers (default: 16)')
 args = parse_args(parser)
 
@@ -81,16 +77,17 @@ NUMBER_OF_SAMPLES = 100
 # TARGET_LABELS = [0, 1, 11, 56, 78, 79]
 TARGET_LABELS = [i for i in range(args.num_classes)]
 # EPSILON_VALUES = [0.001, 0.003, 0.005, 0.01, 0.03, 0.05, 0.1]
-EPSILON_VALUES = [1 / 256]
+EPSILON_VALUES = [0.004, 0.04]
 # zero for each epsion value
 flipped_labels = np.zeros((len(TARGET_LABELS), len(EPSILON_VALUES)))
 
 #############################  EXPERIMENT LOOP #############################
 
-for target_label_id, target_label in enumerate(TARGET_LABELS):
+correlations = torch.zeros((len(EPSILON_VALUES),args.num_classes,args.num_classes))
 
-    # LOAD THE DATASET WITH DESIRED FILTER
-
+for target_label in TARGET_LABELS:
+    print(target_label)
+ 
     if args.dataset_type == 'MSCOCO_2014':
 
         instances_path = os.path.join(args.data, 'annotations/instances_train2014.json')
@@ -103,7 +100,6 @@ for target_label_id, target_label in enumerate(TARGET_LABELS):
                                         transforms.ToTensor(),
                                         # normalize, # no need, toTensor does normalization
                                     ]), label_indices_positive=np.array([target_label]))
-
     elif args.dataset_type == 'PASCAL_VOC2007':
 
         dataset = Voc2007Classification('trainval',
@@ -119,69 +115,44 @@ for target_label_id, target_label in enumerate(TARGET_LABELS):
                         transforms.ToTensor()]), label_indices_positive=np.array([target_label])
         )
 
+
     # Pytorch Data loader
     data_loader = torch.utils.data.DataLoader(
         dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True)
 
+    target = torch.zeros(args.batch_size, args.num_classes).to(device).float()
+    target[:, target_label] = 0
+    loss_weights = torch.zeros(target.shape).to(device)
+    loss_weights[: target_label] = 1
+
     sample_count = 0
 
-    # DATASET LOOP
     for i, (tensor_batch, labels) in enumerate(data_loader):
         tensor_batch = tensor_batch.to(device)
 
         if sample_count >= NUMBER_OF_SAMPLES:
             break
 
-        # Do the inference
-
-        with torch.no_grad():
-            pred = torch.sigmoid(model(tensor_batch)) > args.th
-            target = torch.clone(pred).detach()
-            target[:, target_label] = 0
-
-        # If 1 or more samples were wrongly predicted to (not) have target class, drop the whole batch
-        if torch.sum(pred[:, target_label]).item() < args.batch_size:
-            continue
-
-        # process a batch and add the flipped labels for every epsilon
         for epsilon_index, epsilon in enumerate(EPSILON_VALUES):
 
             # perform the attack
             if args.attack_type == 'PGD':
-                adversarials = pgd(model, tensor_batch, target, eps=epsilon, device="cuda")
+                adversarials = pgd(model, tensor_batch, target, eps=epsilon, device='cuda')
             elif args.attack_type == 'FGSM':
                 adversarials = fgsm(model, tensor_batch, target, eps=epsilon, device='cuda')
             elif args.attack_type == 'MI-FGSM':
-                adversarials = mi_fgsm(model, tensor_batch, target, eps=epsilon, device='cuda')
+                adversarials = mi_fgsm(model, tensor_batch, target, loss_function=torch.nn.BCELoss(weight=loss_weights), eps=epsilon, device='cuda')
             else:
                 print("Unknown attack")
 
             with torch.no_grad():
-                # Another inference after the attack
-                pred_after_attack = (torch.sigmoid(model(adversarials)) > args.th).int()
-                flipped_labels[target_label_id, epsilon_index] += (args.batch_size - torch.sum(pred_after_attack[:, target_label]).item())
-    
+                correlations[epsilon_index, target_label] += (torch.sigmoid(model(adversarials)) - torch.sigmoid(model(tensor_batch))).sum(dim=0).cpu()
+        
         sample_count += args.batch_size
 
-    flipped_labels[target_label_id, 0] = (flipped_labels[target_label_id, 0] / sample_count) * 100
-    print("sample count:", sample_count)
-    
 
-#############################  PLOT LOOP #############################
-
-
-print(flipped_labels)
-
-# attack success percentages
-np.save('experiment_results/{0}-{1}-flipdown'.format(args.model_type, args.dataset_type),flipped_labels)
-
-plt.bar([x for x in range(args.num_classes)], flipped_labels[:, 0]) 
-plt.xlabel("target label")
-plt.ylabel("attack success %")
-plt.title("{0}, {1}, {2}, flipdown".format(args.dataset_type, args.attack_type, args.model_type))
+# PLOT
+np.save('experiment_results/flipdown-correlations-{0}-{1}-{2}.npy'.format(args.dataset_type, args.attack_type, args.model_type), correlations)
+sns.heatmap(correlations[0])
 plt.show()
-
-
-
-

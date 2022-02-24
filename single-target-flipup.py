@@ -61,15 +61,18 @@ args = parse_args(parser)
 
 ########################## SETUP THE MODELS AND LOAD THE DATA #####################
 
-print('creating and loading the model...')
-# state = torch.load(args.model_path, map_location='cpu')
-asl = create_model(args).cuda()
-model_state = torch.load(args.model_path, map_location='cpu')
-asl.load_state_dict(model_state["state_dict"])
-asl.eval()
+# print('Model = ASL')
+# # state = torch.load(args.model_path, map_location='cpu')
+# asl = create_model(args).cuda()
+# model_state = torch.load(args.model_path, map_location='cpu')
+# asl.load_state_dict(model_state["state_dict"])
+# asl.eval()
+# args.model_type = 'asl'
+# model = asl
 
+print('Model = Q2L')
 q2l = create_q2l_model()
-
+args.model_type = 'q2l'
 model = q2l
 
 ################ EXPERIMENT VARIABLES  ########################
@@ -170,12 +173,12 @@ for target_label_id, target_label in enumerate(TARGET_LABELS):
 print(flipped_labels)
 
 # attack success percentages
-np.save('experiment_results/q2l-{0}-flipup'.format(args.dataset_type),flipped_labels)
+np.save('experiment_results/{0}-{1}-flipup'.format(args.model_type, args.dataset_type),flipped_labels)
 
 plt.bar([x for x in range(args.num_classes)], flipped_labels[:, 0]) 
 plt.xlabel("target label")
 plt.ylabel("attack success %")
-plt.title("{0}, {1}, Q2L".format(args.dataset_type, args.attack_type))
+plt.title("{0}, {1}, {2}, flipup".format(args.dataset_type, args.attack_type, args.model_type))
 plt.show()
 
 
