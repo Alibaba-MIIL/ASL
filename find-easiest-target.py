@@ -85,12 +85,12 @@ loss = nn.BCELoss().to(device)
 
 
 # create a batch of random images/tensors 
-# tensor_batch = torch.empty(1,3,224,224).normal_(mean=0.43,std=0.07).to(device)
+tensor_batch = torch.empty(1,3,224,224).normal_(mean=0.5,std=0.3).to(device)
 # tensor_batch = torch.ones(1,3,224,224).to(device)
-# plt.imshow(tensor_batch[0].cpu().permute(1, 2, 0))
-# plt.show()
-# prediction = (model(tensor_batch) > args.th).int()
-# print ((prediction == 1).nonzero()[:, 1])
+plt.imshow(tensor_batch[0].cpu().permute(1, 2, 0))
+plt.show()
+prediction = (model(tensor_batch) > args.th).int()
+print ((prediction == 1).nonzero()[:, 1])
 
 
 results = np.zeros(80)

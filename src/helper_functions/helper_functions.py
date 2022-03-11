@@ -96,6 +96,97 @@ class AverageMeter(object):
         self.ema = self.ema * 0.99 + self.val * 0.01
 
 
+def uniform_mix_C(mixing_ratio, num_classes):
+    '''
+    returns a linear interpolation of a uniform matrix and an identity matrix
+    '''
+    return mixing_ratio * np.full((num_classes, num_classes), 1 / num_classes) + \
+        (1 - mixing_ratio) * np.eye(num_classes)
+
+
+def flip_labels_C(corruption_prob, num_classes, seed=1):
+    '''
+    returns a matrix with (1 - corruption_prob) on the diagonals, and corruption_prob
+    concentrated in only one other entry for each row
+    '''
+    np.random.seed(seed)
+    C = np.eye(num_classes) * (1 - corruption_prob)
+    row_indices = np.arange(num_classes)
+    for i in range(num_classes):
+        C[i][np.random.choice(row_indices[row_indices != i])] = corruption_prob
+    return C
+
+
+class Dataset(object):
+    def __getitem__(self, index):
+        raise NotImplementedError
+
+    def __len__(self):
+        raise NotImplementedError
+
+
+class TensorDataset(Dataset):
+    def __init__(self, root, data_np, target_np, transform):
+        self.root = root
+        self.data_np = data_np
+        self.target_np = target_np
+        self.transform = transform
+
+    def __getitem__(self, index):
+        img_path, target = self.data_np[index], self.target_np[index]
+
+        img = Image.open(os.path.join(self.root, img_path)).convert('RGB')
+
+        img = self.transform(img)
+
+        return img, torch.from_numpy(target)
+
+    def __len__(self):
+        return len(self.data_np)
+
+class TensorDatasetNW(Dataset):
+    def __init__(self, data_np, target_np, transform):
+
+        self.data_np = data_np
+        self.target_np = target_np
+        self.transform = transform
+
+    def __getitem__(self, index):
+        img_path, target = self.data_np[index], self.target_np[index]
+
+        img = Image.open(img_path).convert('RGB')
+
+        img = self.transform(img)
+
+        return img, torch.from_numpy(target)
+
+    def __len__(self):
+        return len(self.data_np)
+
+class TensorDatasetVOC(Dataset):
+    def __init__(self, data_np, target_np, transform=None):
+
+        self.data_np = data_np
+        self.target_np = target_np
+        self.transform = transform
+        self.root = '/media/masoud/DATA/masoud_data/nus_wide/robust_multi_label-main/pascalvoc/VOCtrainval/'
+        self.path_devkit = os.path.join(self.root, 'VOCdevkit')
+        self.path_images = os.path.join(self.root, 'VOCdevkit', 'VOC2007', 'JPEGImages')
+
+    def __getitem__(self, index):
+        img_path, target = self.data_np[index], self.target_np[index]
+
+        img = Image.open(os.path.join(self.path_images, img_path + '.jpg')).convert('RGB')
+        if self.transform is not None:
+            img = self.transform(img)
+        # img = self.transform(img)
+
+        return img, torch.from_numpy(target)
+
+    def __len__(self):
+        return len(self.data_np)
+
+
 class CocoDetectionFiltered(datasets.coco.CocoDetection):
     def __init__(self, root, annFile, transform=None, target_transform=None, label_indices_positive=None, label_indices_negative=None):
         self.root = root

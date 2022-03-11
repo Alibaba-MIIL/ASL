@@ -11,26 +11,34 @@ from src.models import create_model
 from src.loss_functions.losses import AsymmetricLoss
 from randaugment import RandAugment
 from torch.cuda.amp import GradScaler, autocast
+from src.helper_functions.voc import Voc2007Classification
 
 parser = argparse.ArgumentParser(description='PyTorch MS_COCO Training')
-parser.add_argument('data', metavar='DIR', help='path to dataset', default='/home/MSCOCO_2014/')
+parser.add_argument('--data', metavar='DIR', help='path to dataset', default='../coco')
 parser.add_argument('--lr', default=1e-4, type=float)
-parser.add_argument('--model-name', default='tresnet_m')
-parser.add_argument('--model-path', default='./tresnet_m.pth', type=str)
+parser.add_argument('--model-name', default='tresnet_l')
+parser.add_argument('--model-path', default='./MS_COCO_TRresNet_L_448_86.6.pth', type=str)
 parser.add_argument('--num-classes', default=80)
+
+
+
+
+
+
+
 parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                     help='number of data loading workers (default: 16)')
-parser.add_argument('--image-size', default=224, type=int,
+parser.add_argument('--image-size', default=448, type=int,
                     metavar='N', help='input image size (default: 448)')
 parser.add_argument('--thre', default=0.8, type=float,
                     metavar='N', help='threshold value')
-parser.add_argument('-b', '--batch-size', default=56, type=int,
+parser.add_argument('-b', '--batch-size', default=16, type=int,
                     metavar='N', help='mini-batch size (default: 16)')
 parser.add_argument('--print-freq', '-p', default=64, type=int,
                     metavar='N', help='print frequency (default: 64)')
 
-load_imagenet_pretrain = False
-load_checkpoint = True
+load_imagenet_pretrain = True
+load_checkpoint = False
 save_checkpoint = True
 
 def main():
@@ -46,7 +54,7 @@ def main():
                          (k in model.state_dict() and 'head.fc' not in k)}
         model.load_state_dict(filtered_dict, strict=False)
     elif load_checkpoint:
-        model_state = torch.load("mlc-model-epoch50", map_location='cpu')
+        model_state = torch.load("tresnet-asl-voc-epoch40", map_location='cpu')
         model.load_state_dict(model_state["state_dict"])
         model.eval()
 
@@ -87,6 +95,29 @@ def main():
         val_dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=False)
 
+
+    # transform = transforms.Compose([
+    #                     transforms.Resize((args.image_size, args.image_size)),
+    #                     transforms.ToTensor(),
+    #                 ])
+
+    # train_data = Voc2007Classification('trainval',
+    #                                     transform=transform,
+    #                                     train=True)
+
+
+
+    # val_voc = Voc2007Classification('test', transform=transform, train=False)
+
+    # print("len(val_dataset)): ", len(val_voc))
+    # val_loader = torch.utils.data.DataLoader(
+    #     val_voc, batch_size=args.batch_size, shuffle=False,
+    #     num_workers=args.workers, pin_memory=True)
+
+    # train_loader = torch.utils.data.DataLoader(
+    #         train_data, batch_size=args.batch_size, shuffle=False,
+    #         num_workers=args.workers, pin_memory=True)
+
     # Actuall Training
     train_multi_label_coco(model, train_loader, val_loader, args.lr)
 
@@ -114,9 +145,12 @@ def train_multi_label_coco(model, train_loader, val_loader, lr):
         for i, (inputData, target) in enumerate(train_loader):
             inputData = inputData.cuda()
             target = target.cuda()  # (batch,3,num_classes)
-            target = target.max(dim=1)[0]
+            
+            # ONLY USE THIS FOR MSCOCO
+            # target = target.max(dim=1)[0]
             with autocast():  # mixed precision
                 output = model(inputData).float()  # sigmoid will be done in loss !
+
             loss = criterion(output, target)
             model.zero_grad()
 
@@ -145,7 +179,7 @@ def train_multi_label_coco(model, train_loader, val_loader, lr):
               "state_dict": model.state_dict(),
               "optimizer": optimizer.state_dict(),
           }
-          torch.save(model_state, "mlc-model-epoch{0}".format(epoch))
+          torch.save(model_state, "tresnetl-asl-voc-epoch{0}".format(epoch))
 
         model.eval()
         mAP_score = validate_multi(val_loader, model, ema)
@@ -168,7 +202,9 @@ def validate_multi(val_loader, model, ema_model):
     targets = []
     for i, (input, target) in enumerate(val_loader):
         target = target
-        target = target.max(dim=1)[0]
+
+        # ONLY USE THIS FOR MSCOCO
+        # target = target.max(dim=1)[0]
         # compute output
         with torch.no_grad():
             with autocast():
