@@ -99,19 +99,21 @@ class MSELoss(nn.Module):
         return loss
 
 
-class GreedyLinearLoss(nn.Module):
+class SmartLoss(nn.Module):
     
-    def __init__(self, a=8, weight=None, size_average=True):
-        super(GreedyLinearLoss, self).__init__()
+    def __init__(self, p, weight=None, size_average=True):
+        super(SmartLoss, self).__init__()
         self.weight = weight
-        self.a = a
+        self.p = p
 
-    def forward(self, x, y):        
-        
-        positive_loss = sigmoid(-x) * torch.maximum(torch.ones(x.shape).cuda(), -x/self.a + 1)
-        negative_loss = sigmoid(x) * torch.maximum(torch.ones(x.shape).cuda(), x/self.a + 1)
-        loss = y * positive_loss + (1-y) * negative_loss
+    def forward(self, x, y):
+        bce = torch.nn.BCELoss(weight=self.weight)
+        log_loss = 0.5 * self.p * bce(x,y)
+        positive_loss = (1 - 0.5*self.p) * (1-x)
+        negative_loss = (1 - 0.5*self.p) * x
+        linear_loss = y * positive_loss + (1-y) * negative_loss
+
         if self.weight is not None:
             loss = loss * self.weight
-        loss = torch.mean(loss)
-        return loss
+        loss_total = torch.mean(linear_loss) + log_loss
+        return loss_total

@@ -10,7 +10,7 @@ import logging
 import mosek
 import gc
 from multiprocessing import Pool
-from mlc_attack_losses import LinearLoss, GreedyLinearLoss
+from mlc_attack_losses import LinearLoss
 import math
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -82,7 +82,7 @@ def pgd(model, images, target, loss_function=torch.nn.BCELoss(), eps=0.3, alpha=
 
 
 # Momentum Induced Fast Gradient Sign Method 
-def mi_fgsm(model, images, target, loss_function=torch.nn.BCELoss(), sig=True, eps=0.3, iters=10, device='cuda'):
+def mi_fgsm(model, images, target, loss_function=torch.nn.BCELoss(), eps=0.3, device='cuda'):
     
     # put tensors on the GPU
     images = images.to(device)
@@ -91,7 +91,10 @@ def mi_fgsm(model, images, target, loss_function=torch.nn.BCELoss(), sig=True, e
 
     L = loss_function
 
-    alpha = eps / iters
+    alpha = 1/256
+    iters = int(eps / alpha)
+    # iters = 10
+    # alpha = eps / iters
     mu = 1.0
     g = 0
     
@@ -100,10 +103,7 @@ def mi_fgsm(model, images, target, loss_function=torch.nn.BCELoss(), sig=True, e
 
         # USE SIGMOID FOR MULTI-LABEL CLASSIFIER!
 
-        outputs = model(images).to(device)
-        if sig:
-            outputs = sigmoid(outputs)
-
+        outputs = sigmoid(model(images)).to(device)
         model.zero_grad()
         cost = L(outputs, target.detach())
         cost.backward()
@@ -124,83 +124,102 @@ def mi_fgsm(model, images, target, loss_function=torch.nn.BCELoss(), sig=True, e
 
 
 # Momentum Induced Fast Gradient Sign Method 
-def smart_mi_fgsm(model, images, target, flips_ratio, eps=0.3, iters=10, device='cuda'):
+# def smart_mi_fgsm(model, images, target, flips_ratio, eps=0.3, iters=10, device='cuda'):
        
-    # put tensors on the GPU
-    images = images.to(device)
-    target = target.to(device).float()
-    model = model.to(device)
+#     # put tensors on the GPU
+#     images = images.to(device)
+#     target = target.to(device).float()
+#     model = model.to(device)
 
-    alpha = eps / iters
-    mu = 1.0
-    g = 0
+#     alpha = eps / iters
+#     mu = 1.0
+#     g = 0
 
-    # flips_ratio = torch.sum(torch.logical_xor((sigmoid(model(images)) > 0.5).int(), (sigmoid(model(mi_fgsm(model, images, target, eps=0.3, iters=10, device='cuda'))) > 0.5).int())).item() / 80
-    a = 1000 - np.exp(np.log(1000) * flips_ratio)
+#     # flips_ratio = torch.sum(torch.logical_xor((sigmoid(model(images)) > 0.5).int(), (sigmoid(model(mi_fgsm(model, images, target, eps=0.3, iters=10, device='cuda'))) > 0.5).int())).item() / 80
+#     a = 1000 - np.exp(np.log(1000) * flips_ratio)
 
-    L = GreedyLinearLoss(a)
+#     L = SmartLoss(a)
     
-    for i in range(iters):    
-        images.requires_grad = True
+#     for i in range(iters):    
+#         images.requires_grad = True
 
-        # USE SIGMOID FOR MULTI-LABEL CLASSIFIER!
+#         # USE SIGMOID FOR MULTI-LABEL CLASSIFIER!
 
-        outputs = model(images).to(device)
+#         outputs = model(images).to(device)
 
-        model.zero_grad()
-        cost = L(outputs, target.detach())
-        cost.backward()
+#         model.zero_grad()
+#         cost = L(outputs, target.detach())
+#         cost.backward()
 
-        # normalize the gradient
-        new_g = images.grad / torch.sum(torch.abs(images.grad))
+#         # normalize the gradient
+#         new_g = images.grad / torch.sum(torch.abs(images.grad))
 
-        # update the gradient
-        g = mu * g + new_g
+#         # update the gradient
+#         g = mu * g + new_g
 
-        # perform the step, and detach because otherwise gradients get messed up.
-        images = (images - alpha * g.sign()).detach()
+#         # perform the step, and detach because otherwise gradients get messed up.
+#         images = (images - alpha * g.sign()).detach()
 
-    # clamp the output
-    images = torch.clamp(images, min=0, max=1).detach()
+#     # clamp the output
+#     images = torch.clamp(images, min=0, max=1).detach()
             
-    return images
+#     return images
 
 def get_weights_from_correlations(flipup_correlations, flipdown_correlations, outputs, gamma, number_of_labels, target):
 
-    # Construct attack correlation matrix
-    negative_indices = (target == 0).nonzero()[:, 1].cpu().numpy()
-    positive_indices = (target == 1).nonzero()[:, 1].cpu().numpy()
-    attack_correlations = np.zeros(flipup_correlations.shape)
-    attack_correlations[positive_indices] = flipup_correlations[positive_indices]
-    attack_correlations[negative_indices] = flipdown_correlations[negative_indices]
+    with torch.no_grad():
 
-    outputs = outputs.detach().cpu().numpy()
-    normalized_confidences = np.abs(outputs) / np.max(np.abs(outputs))
-    normalized_confidences = np.transpose(np.squeeze(normalized_confidences))
-    confidence_rankings = np.argsort(np.abs(outputs))
+        weights = torch.zeros(target.shape)
+        outputs = (target) * outputs + (1-target) * (1-outputs)
+        outputs = outputs.detach().cpu().numpy()
+        target = target.cpu().numpy()
 
-    # Greedy correlated label select
-    root_label = confidence_rankings[:, len(confidence_rankings) - 1].item()
+        # Construct attack correlation matrix
+        # negative_indices = (target == 0).nonzero()[:, 1]
+        # positive_indices = (target == 1).nonzero()[:, 1]
+        negative_indices = np.where(target == 0)
+        positive_indices = np.where(target == 1)
+        negative_indices_per_batch = []
+        positive_indices_per_batch = []
 
-    label_set = [root_label]
-    for i in range(number_of_labels-1):
+        
 
-        correlation_to_set = attack_correlations[:, label_set].sum(axis=1)
-        correlation_from_set = attack_correlations[label_set, :].sum(axis=0)
-        correlation_factors = correlation_to_set + correlation_from_set
-        normalized_correlation_factors = correlation_factors / np.max(correlation_factors)
-        factors = gamma * normalized_correlation_factors + (1-gamma) * normalized_confidences
-        ranking = np.argsort(factors)
-        updated_ranking = [x for x in ranking if x not in label_set]
-        label_set.append(updated_ranking[len(updated_ranking)-1])
+        for i in range(target.shape[0]):
+            negative_indices_per_batch.append(negative_indices[1][np.where(negative_indices[0] == i)])
+            positive_indices_per_batch.append(positive_indices[1][np.where(positive_indices[0] == i)])
 
-    # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    # print(label_set,confidence_rankings)
-    # print("?????????????????????????????????????????????????")
-    weights = torch.zeros(target.shape)
-    weights[:, label_set] = 1
-    print(label_set, gamma)
-    return weights
+
+            current_positive_indices = positive_indices_per_batch[i]
+            current_negative_indices = negative_indices_per_batch[i]
+
+            attack_correlations = np.zeros(flipup_correlations.shape)
+            attack_correlations[current_positive_indices] = flipup_correlations[current_positive_indices]
+            attack_correlations[current_negative_indices] = flipdown_correlations[current_negative_indices]
+
+            
+            normalized_confidences = np.abs(outputs[i]) / np.max(np.abs(outputs[i]))
+            normalized_confidences = np.transpose(np.squeeze(normalized_confidences))
+            confidence_rankings = np.argsort(np.abs(outputs[i]))
+
+            # Greedy correlated label select
+            root_label = confidence_rankings[len(confidence_rankings) - 1].item()
+
+            label_set = [root_label]
+
+            for j in range(number_of_labels-1):
+
+                correlation_to_set = attack_correlations[:, label_set].sum(axis=1)
+                correlation_from_set = attack_correlations[label_set, :].sum(axis=0)
+                correlation_factors = correlation_to_set + correlation_from_set
+                normalized_correlation_factors = correlation_factors / np.max(correlation_factors)
+                factors = gamma * normalized_correlation_factors + (1-gamma) * normalized_confidences
+                ranking = np.argsort(factors)
+                updated_ranking = [x for x in ranking if x not in label_set]
+                label_set.append(updated_ranking[len(updated_ranking)-1])
+
+        
+            weights[i, label_set] = 1
+        return weights
 
 
 def correlation_mi_fgsm(model, images, flipup_correlations, flipdown_correlations, gamma, number_of_labels, random=False, device='cuda'):
@@ -209,24 +228,29 @@ def correlation_mi_fgsm(model, images, flipup_correlations, flipdown_correlation
     images = images.to(device).detach()
     model = model.to(device)
 
-    alpha = 0.1/256
+    alpha = 1/256
     mu = 1.0
     g = 0
 
-    original_output = sigmoid(model(images))
-    original_pred = (original_output > 0.5).int().to(device)
-    target = (1 - original_pred).to(device).float()
-    rankings = torch.argsort(torch.abs(original_output), descending=True)
-    if random is True:
-        weights = torch.zeros(target.shape).to(device)
-        weights[:, np.random.permutation(target.shape[1])[0:number_of_labels]] = 1
-    else:
-        weights = get_weights_from_correlations(flipup_correlations, flipup_correlations, original_output, gamma, number_of_labels, target).to(device)
+    with torch.no_grad():
+        original_output = sigmoid(model(images)).detach()
+        original_pred = (original_output > 0.5).int().to(device).detach()
+        target = (1 - original_pred).to(device).float().detach()
+        rankings = torch.argsort(torch.abs(original_output), descending=True).detach()
+        if random is True:
+            weights = torch.zeros(target.shape).to(device)
+            weights[:, np.random.permutation(target.shape[1])[0:number_of_labels]] = 1
+        else:
+            weights = get_weights_from_correlations(flipup_correlations, flipup_correlations, original_output, gamma, number_of_labels, target).to(device)
+    
     L = torch.nn.BCELoss(weight=weights)
 
     done = False
     iters = 0
+    epsilon_values = np.zeros(target.shape[0])
+
     while not done:    
+
         images.requires_grad = True
 
         # USE SIGMOID FOR MULTI-LABEL CLASSIFIER!
@@ -234,6 +258,7 @@ def correlation_mi_fgsm(model, images, flipup_correlations, flipdown_correlation
         model.zero_grad()
         cost = L(outputs, target.detach())
         cost.backward()
+
 
         # normalize the gradient
         new_g = images.grad / torch.sum(torch.abs(images.grad))
@@ -249,13 +274,19 @@ def correlation_mi_fgsm(model, images, flipup_correlations, flipdown_correlation
 
         with torch.no_grad():
             pred = (sigmoid(model(images)) > 0.5).int().to(device)
-            flips = torch.sum(torch.logical_xor(pred[:,weights.nonzero()[:, 1]],original_pred[:,weights.nonzero()[:, 1]]))
-            if flips >= number_of_labels:
+            flips = torch.sum(torch.logical_xor(pred, original_pred) * weights, dim=1)
+            for i  in range(target.shape[0]):
+                if flips[i] >= number_of_labels and epsilon_values[i] == 0:
+                    epsilon_values[i] = iters * alpha
+            if flips.sum() >= target.shape[0] * number_of_labels:
                 done = True
 
         iters = iters + 1
+        if iters > 100:
+            done = True
+            print("couldn't flip all labels, ", len([x for x in list(epsilon_values) if x == 0]), gamma)
             
-    return iters * alpha
+    return [x for x in list(epsilon_values) if x != 0]
 
 
 

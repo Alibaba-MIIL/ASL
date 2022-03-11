@@ -49,13 +49,13 @@ import seaborn as sns
 # plt.legend()
 # plt.show()
 
-# correlations = np.load('experiment_results/flipup-correlations-{0}-{1}-{2}.npy'.format("MSCOCO_2014", "MI-FGSM", "q2l"))
-# sns.heatmap(correlations[0])
-# plt.title("MSCOCO_2014, MI-FGSM, Q2L, eps=0.004")
-# plt.show()
-
-
-x = torch.tensor([i/100 for i in range(1000)])
-y = torch.sigmoid(x) * torch.max(torch.ones(x.shape), x/8 + 1)
-plt.plot(x,y)
+correlations = np.load('experiment_results/flipup-correlations-cross-dataset-{0}-{1}-{2}.npy'.format("NUS_WIDE", "MI-FGSM", "q2l"))
+sns.heatmap(correlations[1])
+plt.title("MSCOCO_2014, MI-FGSM, ASL, eps=0.04")
 plt.show()
+
+
+# x = torch.tensor([i/100 for i in range(1000)])
+# y = torch.sigmoid(x) * torch.max(torch.ones(x.shape), x/8 + 1)
+# plt.plot(x,y)
+# plt.show()

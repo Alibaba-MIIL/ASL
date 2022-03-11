@@ -15,19 +15,20 @@ from sklearn.metrics import auc
 from src.helper_functions.helper_functions import mAP, CocoDetection, CocoDetectionFiltered, CutoutPIL, ModelEma, add_weight_decay
 import seaborn as sns
 from src.helper_functions.nuswide_asl import NusWideFiltered
+from create_model import create_q2l_model
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # USE GPU
 parser = argparse.ArgumentParser()
 ########################## ARGUMENTS #############################################
 
 # MSCOCO 2014
-parser.add_argument('data', metavar='DIR', help='path to dataset', default='coco')
-parser.add_argument('attack_type', type=str, default='pgd')
-parser.add_argument('--model_path', type=str, default='./models/tresnetl-asl-mscoco-epoch80')
-parser.add_argument('--model_name', type=str, default='tresnet_l')
-parser.add_argument('--num-classes', default=80)
-parser.add_argument('--dataset_type', type=str, default='MSCOCO_2014')
-parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
+# parser.add_argument('data', metavar='DIR', help='path to dataset', default='coco')
+# parser.add_argument('attack_type', type=str, default='pgd')
+# parser.add_argument('--model_path', type=str, default='./models/tresnetl-asl-mscoco-epoch80')
+# parser.add_argument('--model_name', type=str, default='tresnet_l')
+# parser.add_argument('--num-classes', default=80)
+# parser.add_argument('--dataset_type', type=str, default='MSCOCO_2014')
+# parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
 
 # PASCAL VOC2007
 # parser.add_argument('data', metavar='DIR', help='path to dataset', default='../VOC2007')
@@ -39,17 +40,17 @@ parser.add_argument('--image-size', default=448, type=int, metavar='N', help='in
 # parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
 
 # # NUS_WIDE
-# parser.add_argument('data', metavar='DIR', help='path to dataset', default='../NUS_WIDE')
-# parser.add_argument('attack_type', type=str, default='pgd')
-# parser.add_argument('--model_path', type=str, default='./models/tresnetl-asl-nuswide-epoch80')
-# parser.add_argument('--model_name', type=str, default='tresnet_l')
-# parser.add_argument('--num-classes', default=81)
-# parser.add_argument('--dataset_type', type=str, default='NUS_WIDE')
-# parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
+parser.add_argument('data', metavar='DIR', help='path to dataset', default='../NUS_WIDE')
+parser.add_argument('attack_type', type=str, default='pgd')
+parser.add_argument('--model_path', type=str, default='./models/tresnetl-asl-nuswide-epoch80')
+parser.add_argument('--model_name', type=str, default='tresnet_l')
+parser.add_argument('--num-classes', default=81)
+parser.add_argument('--dataset_type', type=str, default='NUS_WIDE')
+parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
 
 # IMPORTANT PARAMETERS!
 parser.add_argument('--th', type=float, default=0.5)
-parser.add_argument('-b', '--batch-size', default=5, type=int,
+parser.add_argument('-b', '--batch-size', default=1, type=int,
                     metavar='N', help='mini-batch size (default: 16)')
 parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                     help='number of data loading workers (default: 16)')
@@ -67,7 +68,7 @@ args = parse_args(parser)
 # model = asl
 
 print('Model = Q2L')
-q2l = create_q2l_model()
+q2l = create_q2l_model('config_nuswide.json')
 args.model_type = 'q2l'
 model = q2l
 

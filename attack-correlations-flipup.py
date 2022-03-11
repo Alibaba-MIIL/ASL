@@ -39,12 +39,22 @@ parser = argparse.ArgumentParser()
 # parser.add_argument('--dataset_type', type=str, default='PASCAL_VOC2007')
 # parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
 
-# # NUS_WIDE
+# NUS_WIDE
+# parser.add_argument('data', metavar='DIR', help='path to dataset', default='../NUS_WIDE')
+# parser.add_argument('attack_type', type=str, default='pgd')
+# parser.add_argument('--model_path', type=str, default='./models/tresnetl-asl-nuswide-epoch80')
+# parser.add_argument('--model_name', type=str, default='tresnet_l')
+# parser.add_argument('--num-classes', default=81)
+# parser.add_argument('--dataset_type', type=str, default='NUS_WIDE')
+# parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
+
+
+# Cross model
 parser.add_argument('data', metavar='DIR', help='path to dataset', default='../NUS_WIDE')
 parser.add_argument('attack_type', type=str, default='pgd')
 parser.add_argument('--model_path', type=str, default='./models/tresnetl-asl-nuswide-epoch80')
 parser.add_argument('--model_name', type=str, default='tresnet_l')
-parser.add_argument('--num-classes', default=81)
+parser.add_argument('--num-classes', default=80)
 parser.add_argument('--dataset_type', type=str, default='NUS_WIDE')
 parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
 
@@ -68,7 +78,7 @@ args = parse_args(parser)
 # model = asl
 
 print('Model = Q2L')
-q2l = create_q2l_model('config_nuswide.json')
+q2l = create_q2l_model('config_coco.json')
 args.model_type = 'q2l'
 model = q2l
 
@@ -153,6 +163,6 @@ for target_label in TARGET_LABELS:
 
 
 # PLOT
-np.save('experiment_results/flipup-correlations-{0}-{1}-{2}.npy'.format(args.dataset_type, args.attack_type, args.model_type), correlations)
+np.save('experiment_results/flipup-correlations-cross-dataset-{0}-{1}-{2}.npy'.format(args.dataset_type, args.attack_type, args.model_type), correlations)
 sns.heatmap(correlations[0])
 plt.show()

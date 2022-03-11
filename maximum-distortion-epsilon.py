@@ -10,8 +10,8 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
-from attacks import pgd, fgsm, mi_fgsm, get_weights, smart_mi_fgsm
-from mlc_attack_losses import SigmoidLoss, HybridLoss, HingeLoss, LinearLoss, MSELoss, GreedyLinearLoss
+from attacks import pgd, fgsm, mi_fgsm, get_weights
+from mlc_attack_losses import SigmoidLoss, HybridLoss, HingeLoss, LinearLoss, MSELoss, SmartLoss
 from sklearn.metrics import auc
 from src.helper_functions.helper_functions import mAP, CocoDetection, CocoDetectionFiltered, CutoutPIL, ModelEma, add_weight_decay
 from src.helper_functions.voc import Voc2007Classification
@@ -43,13 +43,13 @@ parser = argparse.ArgumentParser()
 # parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
 
 # # NUS_WIDE
-# parser.add_argument('data', metavar='DIR', help='path to dataset', default='../NUS_WIDE')
-# parser.add_argument('attack_type', type=str, default='pgd')
-# parser.add_argument('--model_path', type=str, default='./models/tresnetl-asl-nuswide-epoch80')
-# parser.add_argument('--model_name', type=str, default='tresnet_l')
-# parser.add_argument('--num-classes', default=81)
-# parser.add_argument('--dataset_type', type=str, default='NUS_WIDE')
-# parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
+parser.add_argument('data', metavar='DIR', help='path to dataset', default='../NUS_WIDE')
+parser.add_argument('attack_type', type=str, default='pgd')
+parser.add_argument('--model_path', type=str, default='./models/tresnetl-asl-nuswide-epoch80')
+parser.add_argument('--model_name', type=str, default='tresnet_l')
+parser.add_argument('--num-classes', default=81)
+parser.add_argument('--dataset_type', type=str, default='NUS_WIDE')
+parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
 
 
 # IMPORTANT PARAMETERS!
@@ -72,7 +72,7 @@ args.model_type = 'asl'
 model = asl
 
 # print('Model = Q2L')
-# q2l = create_q2l_model('config_nuswide.json')
+# q2l = create_q2l_model('config_coco.json')
 # args.model_type = 'q2l'
 # model = q2l
 
@@ -122,8 +122,9 @@ data_loader = torch.utils.data.DataLoader(
 NUMBER_OF_SAMPLES = 20
 min_eps = 1/256
 # EPSILON_VALUES = [min_eps, 2*min_eps, 4*min_eps, 6*min_eps, 8*min_eps, 10*min_eps]
-EPSILON_VALUES = [3*min_eps, 6*min_eps, 12*min_eps, 18*min_eps, 24*min_eps, 50*min_eps]
-flipped_labels = np.zeros((3, len(EPSILON_VALUES)))
+EPSILON_VALUES = [12*min_eps, 24*min_eps, 36*min_eps, 48*min_eps]
+# EPSILON_VALUES = [24*min_eps]
+flipped_labels = np.zeros((4, len(EPSILON_VALUES)))
 
 #############################  EXPERIMENT LOOP #############################
 
@@ -151,12 +152,12 @@ for i, (tensor_batch, labels) in enumerate(data_loader):
         elif args.attack_type == 'FGSM':
             pass
         elif args.attack_type == 'MI-FGSM':
-            adversarials0 = mi_fgsm(model, tensor_batch, target, loss_function=torch.nn.BCELoss(), eps=epsilon, device="cuda")
+            adversarials0 = mi_fgsm(model, tensor_batch.detach(), target, loss_function=torch.nn.BCELoss(), eps=epsilon, device="cuda").detach()
             # with torch.no_grad():
-            #     flip_ratio = torch.sum(torch.logical_xor(pred, (torch.sigmoid(model(adversarials0)) > args.th).int())).item() / (80 * args.batch_size)
-            adversarials1 = mi_fgsm(model, tensor_batch, target, loss_function=LinearLoss(), eps=epsilon, device="cuda")
-            # adversarials2 = mi_fgsm(model, tensor_batch, target, loss_function=LinearLoss(), eps=epsilon, device="cuda")
-            # adversarials3 = smart_mi_fgsm(model, tensor_batch, target, loss_function=GreedyLinearLoss(a=1000), sig=False eps=epsilon, device="cuda")
+                # flip_ratio = torch.sum(torch.logical_xor(pred, (torch.sigmoid(model(adversarials0)) > args.th).int())).item() / (args.num_classes * args.batch_size)
+            adversarials1 = mi_fgsm(model, tensor_batch.detach(), target, loss_function=LinearLoss(), eps=epsilon, device="cuda").detach()
+            # adversarials2 = mi_fgsm(model, tensor_batch.detach(), target, loss_function=SmartLoss(flip_ratio), eps=epsilon, device="cuda").detach()
+            # adversarials3 = mi_fgsm(model, tensor_batch.detach(), target, loss_function=HingeLoss(), eps=epsilon, device="cuda").detach()
             # adversarials4 = smart_mi_fgsm(model, tensor_batch, target, loss_function=GreedyLinearLoss(a=8), sig=False, eps=epsilon, device="cuda")
             # adversarials5 = mi_fgsm(model, tensor_batch, target, eps=epsilon, device="cuda")
             # adversarials6 = mi_fgsm(model, tensor_batch, target, loss_function=F2(), eps=epsilon, device="cuda")
@@ -194,8 +195,8 @@ np.save('experiment_results/maxdist_epsilon_bce_vs_sigmoid-{0}-{1}'.format(args.
 
 plt.plot(EPSILON_VALUES, flipped_labels[0, :], label='BCELoss')
 plt.plot(EPSILON_VALUES, flipped_labels[1, :], label='Linear')
-# plt.plot(EPSILON_VALUES, flipped_labels[2, :], label='Sigmoid')
-# plt.plot(EPSILON_VALUES, flipped_labels[3, :], label='a = {0}'.format(8))
+# plt.plot(EPSILON_VALUES, flipped_labels[2, :], label='Smart')
+# plt.plot(EPSILON_VALUES, flipped_labels[3, :], label='Hinge')
 # plt.plot(EPSILON_VALUES, flipped_labels[4, :], label='a = {0}'.format(16))
 # plt.plot(EPSILON_VALUES, flipped_labels[5, :], label='BCELoss')   
 

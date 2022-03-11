@@ -120,7 +120,7 @@ flipdown_rankings = torch.tensor(np.load('experiment_results/{0}-{1}-flipdown.np
 ################ EXPERIMENT VARIABLES ########################
 
 NUMBER_OF_SAMPLES = 100
-EPSILON_VALUES = [1 / 256]
+EPSILON_VALUES = [2 / 256]
 amount_of_targets = [i for i in range(0,args.num_classes+1,10)]
 flipped_labels = np.zeros((2, len(amount_of_targets)))
 
@@ -152,7 +152,7 @@ for i, (tensor_batch, labels) in enumerate(data_loader):
             pass
         elif args.attack_type == 'MI-FGSM':
             adversarials0 = mi_fgsm(model, tensor_batch, target, loss_function=torch.nn.BCELoss(weight=get_weights(outputs, number_of_targets, target, random=False).to(device)), eps=EPSILON_VALUES[0], device="cuda")
-            adversarials1 = mi_fgsm(model, tensor_batch, target, loss_function=torch.nn.BCELoss(weight=get_weights(outputs, number_of_targets, target, random=True).to(device)), eps=EPSILON_VALUES[0], device="cuda")
+            # adversarials1 = mi_fgsm(model, tensor_batch, target, loss_function=torch.nn.BCELoss(weight=get_weights(outputs, number_of_targets, target, random=True).to(device)), eps=EPSILON_VALUES[0], device="cuda")
             # adversarials2 = mi_fgsm(model, tensor_batch, target, loss_function=SigmoidLoss(weight=get_weights(flipup_rankings, flipdown_rankings, number_of_targets, target, random=True).to(device)), eps=EPSILON_VALUES[0], device="cuda")
             # adversarials3 = mi_fgsm(model, tensor_batch, target, loss_function=HingeLoss(weight=get_weights(flipup_rankings, flipdown_rankings, number_of_targets, target, random=True).to(device)), eps=EPSILON_VALUES[0], device="cuda")
             # adversarials4 = mi_fgsm(model, tensor_batch, target, loss_function=HybridLoss(weight=get_weights(flipup_rankings, flipdown_rankings, number_of_targets, target, random=True).to(device)), eps=EPSILON_VALUES[0], device="cuda")
@@ -165,14 +165,14 @@ for i, (tensor_batch, labels) in enumerate(data_loader):
         with torch.no_grad():
             # Another inference after the attack
             pred_after_attack0 = (torch.sigmoid(model(adversarials0)) > args.th).int()
-            pred_after_attack1 = (torch.sigmoid(model(adversarials1)) > args.th).int()
+            # pred_after_attack1 = (torch.sigmoid(model(adversarials1)) > args.th).int()
             # pred_after_attack2 = (torch.sigmoid(model(adversarials2)) > args.th).int()
             # pred_after_attack3 = (torch.sigmoid(model(adversarials3)) > args.th).int()
             # pred_after_attack4 = (torch.sigmoid(model(adversarials4)) > args.th).int()
             # pred_after_attack5 = (torch.sigmoid(model(adversarials5)) > args.th).int()
             # pred_after_attack6 = (torch.sigmoid(model(adversarials6)) > args.th).int()
             flipped_labels[0, amount_id] += torch.sum(torch.logical_xor(pred, pred_after_attack0)).item() / (NUMBER_OF_SAMPLES)
-            flipped_labels[1, amount_id] += torch.sum(torch.logical_xor(pred, pred_after_attack1)).item() / (NUMBER_OF_SAMPLES)
+            # flipped_labels[1, amount_id] += torch.sum(torch.logical_xor(pred, pred_after_attack1)).item() / (NUMBER_OF_SAMPLES)
             # flipped_labels[2, amount_id] += torch.sum(torch.logical_xor(pred, pred_after_attack2)).item() / (NUMBER_OF_SAMPLES)
             # flipped_labels[3, amount_id] += torch.sum(torch.logical_xor(pred, pred_after_attack3)).item() / (NUMBER_OF_SAMPLES)
             # flipped_labels[4, amount_id] += torch.sum(torch.logical_xor(pred, pred_after_attack4)).item() / (NUMBER_OF_SAMPLES)
@@ -183,20 +183,20 @@ for i, (tensor_batch, labels) in enumerate(data_loader):
     print('batch number:',i)
 
 print(flipped_labels)
-np.save('experiment_results/maxdist_bce_allocation-{0}'.format(args.model_type),flipped_labels)
+np.save('experiment_results/maxdist_bce_allocation-{0}-{1}.npy'.format(args.model_type, args.dataset_type),flipped_labels)
 
 
 # #############################  PLOT CODE #############################
 
-plt.plot(amount_of_targets, flipped_labels[0, :], label='Top-n')
-plt.plot(amount_of_targets, flipped_labels[1, :], label='Random-n')
+plt.plot(amount_of_targets, flipped_labels[0, :], label='Top-n, BCELoss')
+# plt.plot(amount_of_targets, flipped_labels[1, :], label='Random-n')
 # plt.plot(amount_of_targets, flipped_labels[2, :], label='SigmoidLoss')
 # plt.plot(amount_of_targets, flipped_labels[3, :], label='HingeLoss')
 # plt.plot(amount_of_targets, flipped_labels[4, :], label='HybridLoss')   
 
 plt.xlabel("number of targeted labels")
 plt.ylabel("label flips")
-plt.title("{0}, {1}, {2}".format(args.dataset_type, args.attack_type, args.model_type))
+plt.title("{0}, {1}".format(args.dataset_type, args.model_type))
 plt.legend()
 plt.show()
 

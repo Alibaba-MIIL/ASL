@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
 from attacks import pgd, fgsm, mi_fgsm, get_weights, correlation_mi_fgsm
-from mlc_attack_losses import SigmoidLoss, HybridLoss, HingeLoss, LinearLoss, MSELoss, GreedyLinearLoss
+from mlc_attack_losses import SigmoidLoss, HybridLoss, HingeLoss, LinearLoss, MSELoss
 from sklearn.metrics import auc
 from src.helper_functions.helper_functions import mAP, CocoDetection, CocoDetectionFiltered, CutoutPIL, ModelEma, add_weight_decay
 from src.helper_functions.voc import Voc2007Classification
@@ -54,7 +54,7 @@ parser.add_argument('--image-size', default=448, type=int, metavar='N', help='in
 
 # IMPORTANT PARAMETERS!
 parser.add_argument('--th', type=float, default=0.5)
-parser.add_argument('-b', '--batch-size', default=1, type=int,
+parser.add_argument('-b', '--batch-size', default=5, type=int,
                     metavar='N', help='mini-batch size (default: 16)')
 parser.add_argument('-j', '--workers', default=1, type=int, metavar='N',
                     help='number of data loading workers (default: 16)')
@@ -62,19 +62,19 @@ args = parse_args(parser)
 
 ########################## SETUP THE MODELS AND LOAD THE DATA #####################
 
-# print('Model = ASL')
-# state = torch.load(args.model_path, map_location='cpu')
-# asl = create_model(args).cuda()
-# model_state = torch.load(args.model_path, map_location='cpu')
-# asl.load_state_dict(model_state["state_dict"])
-# asl.eval()
-# args.model_type = 'asl'
-# model = asl
+print('Model = ASL')
+state = torch.load(args.model_path, map_location='cpu')
+asl = create_model(args).cuda()
+model_state = torch.load(args.model_path, map_location='cpu')
+asl.load_state_dict(model_state["state_dict"])
+asl.eval()
+args.model_type = 'asl'
+model = asl
 
-print('Model = Q2L')
-q2l = create_q2l_model('config_coco.json')
-args.model_type = 'q2l'
-model = q2l
+# print('Model = Q2L')
+# q2l = create_q2l_model('config_nuswide.json')
+# args.model_type = 'q2l'
+# model = q2l
 
 
 
@@ -115,15 +115,14 @@ data_loader = torch.utils.data.DataLoader(
 
 
 flipup_correlations = np.load('experiment_results/flipup-correlations-{0}-{1}-{2}.npy'.format(args.dataset_type, args.attack_type, args.model_type))[1]
-flipdown_correlations = np.load('experiment_results/flipup-correlations-{0}-{1}-{2}.npy'.format(args.dataset_type, args.attack_type, args.model_type))[1]
+flipdown_correlations = np.load('experiment_results/flipdown-correlations-{0}-{1}-{2}.npy'.format(args.dataset_type, args.attack_type, args.model_type))[1]
 
 
 ################ EXPERIMENT VARIABLES ########################
 
-NUMBER_OF_SAMPLES = 10
-random_results = []
-correlation_results = [[] for x in range(7)]
-print(correlation_results)
+NUMBER_OF_SAMPLES = 100
+correlation_results = [[[] for x in range(6)] for i in range(4)]
+
 
 #############################  EXPERIMENT LOOP #############################
 
@@ -136,32 +135,34 @@ for i, (tensor_batch, labels) in enumerate(data_loader):
     if sample_count >= NUMBER_OF_SAMPLES:
         break
 
-    # Do the inference
-    with torch.no_grad():
-        pred = torch.sigmoid(model(tensor_batch)) > args.th
-        target = torch.clone(pred).detach()
-        target = ~target
+    for index, number_of_attacked_labels in enumerate([5,10,20,40]):
 
-    
+        # Do the inference
+        with torch.no_grad():
+            pred = torch.sigmoid(model(tensor_batch)) > args.th
+            target = torch.clone(pred).detach()
+            target = ~target
 
-    # perform the attack
-    if args.attack_type == 'PGD':
-        pass
-    elif args.attack_type == 'FGSM':
-        pass
-    elif args.attack_type == 'MI-FGSM':
-        correlation_results[0].append(correlation_mi_fgsm(model, tensor_batch, flipup_correlations, flipdown_correlations, 0, 20,  device="cuda"))
-        correlation_results[1].append(correlation_mi_fgsm(model, tensor_batch, flipup_correlations, flipdown_correlations, 0.2, 20,  device="cuda"))
-        correlation_results[2].append(correlation_mi_fgsm(model, tensor_batch, flipup_correlations, flipdown_correlations, 0.4, 20,  device="cuda"))
-        correlation_results[3].append(correlation_mi_fgsm(model, tensor_batch, flipup_correlations, flipdown_correlations, 0.6, 20,  device="cuda"))
-        correlation_results[4].append(correlation_mi_fgsm(model, tensor_batch, flipup_correlations, flipdown_correlations, 0.8, 20,  device="cuda"))
-        correlation_results[5].append(correlation_mi_fgsm(model, tensor_batch, flipup_correlations, flipdown_correlations, 1, 20, device="cuda"))
-        correlation_results[6].append(correlation_mi_fgsm(model, tensor_batch, flipup_correlations, flipdown_correlations, 1, 20, random=True, device="cuda"))
-    else:
-        print("Unknown attack")
-        break
+        # perform the attack
+        if args.attack_type == 'PGD':
+            pass
+        elif args.attack_type == 'FGSM':
+            pass
+        elif args.attack_type == 'MI-FGSM':
+            correlation_results[index][0].extend(correlation_mi_fgsm(model, tensor_batch.detach(), flipup_correlations, flipdown_correlations, 0, number_of_attacked_labels,  device="cuda"))
+            correlation_results[index][1].extend(correlation_mi_fgsm(model, tensor_batch.detach(), flipup_correlations, flipdown_correlations, 0.25, number_of_attacked_labels,  device="cuda"))
+            correlation_results[index][2].extend(correlation_mi_fgsm(model, tensor_batch.detach(), flipup_correlations, flipdown_correlations, 0.5, number_of_attacked_labels,  device="cuda"))
+            correlation_results[index][3].extend(correlation_mi_fgsm(model, tensor_batch.detach(), flipup_correlations, flipdown_correlations, 0.75, number_of_attacked_labels,  device="cuda"))
+            correlation_results[index][4].extend(correlation_mi_fgsm(model, tensor_batch.detach(), flipup_correlations, flipdown_correlations, 1, number_of_attacked_labels, device="cuda"))
+            correlation_results[index][5].extend(correlation_mi_fgsm(model, tensor_batch.detach(), flipup_correlations, flipdown_correlations, 2, number_of_attacked_labels, random=True, device="cuda"))
+        else:
+            print("Unknown attack")
+            break
 
     sample_count += args.batch_size
     print('batch number:',i)
 
-print(np.mean(np.array(correlation_results), axis=1))
+for l in correlation_results:
+    print([np.mean(x) for x in l])
+    # print([(np.mean(x), np.std(x)) for x in l])
+# print(np.mean(np.array(correlation_results), axis=1))
