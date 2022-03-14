@@ -165,64 +165,179 @@ def mi_fgsm(model, images, target, loss_function=torch.nn.BCELoss(), eps=0.3, de
             
 #     return images
 
-def get_weights_from_correlations(flipup_correlations, flipdown_correlations, outputs, gamma, number_of_labels, target):
+# def get_weights_from_correlations(flipup_correlations, flipdown_correlations, outputs, gamma, number_of_labels, target):
 
-    with torch.no_grad():
 
-        weights = torch.zeros(target.shape)
-        outputs = (target) * outputs + (1-target) * (1-outputs)
-        outputs = outputs.detach().cpu().numpy()
-        target = target.cpu().numpy()
+#     weights = torch.zeros(target.shape)
+#     outputs = (target) * outputs + (1-target) * (1-outputs)
+#     outputs = outputs.detach().cpu().numpy()
+#     target = target.cpu().numpy()
 
-        # Construct attack correlation matrix
-        # negative_indices = (target == 0).nonzero()[:, 1]
-        # positive_indices = (target == 1).nonzero()[:, 1]
+#     # Construct attack correlation matrix
+#     # negative_indices = (target == 0).nonzero()[:, 1]
+#     # positive_indices = (target == 1).nonzero()[:, 1]
+#     negative_indices = np.where(target == 0)
+#     positive_indices = np.where(target == 1)
+#     negative_indices_per_batch = []
+#     positive_indices_per_batch = []
+
+    
+
+#     for i in range(target.shape[0]):
+#         negative_indices_per_batch.append(negative_indices[1][np.where(negative_indices[0] == i)])
+#         positive_indices_per_batch.append(positive_indices[1][np.where(positive_indices[0] == i)])
+
+
+#         current_positive_indices = positive_indices_per_batch[i]
+#         current_negative_indices = negative_indices_per_batch[i]
+
+#         attack_correlations = np.zeros(flipup_correlations.shape)
+#         attack_correlations[current_positive_indices] = flipup_correlations[current_positive_indices]
+#         attack_correlations[current_negative_indices] = flipdown_correlations[current_negative_indices]
+
+        
+#         normalized_confidences = np.abs(outputs[i]) / np.max(np.abs(outputs[i]))
+#         normalized_confidences = np.transpose(np.squeeze(normalized_confidences))
+#         confidence_rankings = np.argsort(np.abs(outputs[i]))
+
+#         # Greedy correlated label select
+#         root_label = confidence_rankings[len(confidence_rankings) - 1].item()
+
+#         label_set = [root_label]
+
+#         for j in range(number_of_labels-1):
+
+#             correlation_to_set = attack_correlations[:, label_set].sum(axis=1)
+#             correlation_from_set = attack_correlations[label_set, :].sum(axis=0)
+#             correlation_factors = correlation_to_set + correlation_from_set
+#             normalized_correlation_factors = correlation_factors / np.max(correlation_factors)
+#             factors = gamma * normalized_correlation_factors + (1-gamma) * normalized_confidences
+#             ranking = np.argsort(factors)
+#             updated_ranking = [x for x in ranking if x not in label_set]
+#             label_set.append(updated_ranking[len(updated_ranking)-1])
+
+    
+#         weights[i, label_set] = 1
+#     return weights
+
+def get_weights_from_correlations(flipup_correlations, flipdown_correlations, target, outputs, number_of_labels, gamma, number_of_branches, branch_depth):
+
+    weights = torch.zeros(target.shape)
+    outputs = (target) * outputs + (1-target) * (1-outputs)
+    outputs = outputs.detach().cpu().numpy()
+    target = target.cpu().numpy()
+
+    for i in range(target.shape[0]):
+        weights[i, get_easiest_n_labels(target[i,:], flipup_correlations, flipdown_correlations, outputs[i,:], number_of_labels, gamma, number_of_branches, branch_depth)] = 1
+    return weights
+
+
+def get_easiest_n_labels(target, flipup_correlations, flipdown_correlations, outputs, number_of_labels, gamma, number_of_branches, branch_depth):    
+
+    for i in range(target.shape[0]):
+        
         negative_indices = np.where(target == 0)
         positive_indices = np.where(target == 1)
-        negative_indices_per_batch = []
-        positive_indices_per_batch = []
 
+        instance_correlation_matrix = np.zeros(flipup_correlations.shape)
+        instance_correlation_matrix[positive_indices] = flipup_correlations[positive_indices]
+        instance_correlation_matrix[negative_indices] = flipdown_correlations[negative_indices]
+
+        normalized_confidences = np.abs(outputs) / np.max(np.abs(outputs))
+
+        return look_ahead_easiest_n_labels(normalized_confidences, instance_correlation_matrix, number_of_labels, gamma, number_of_branches, branch_depth)
         
+class TreeOfLists():
 
-        for i in range(target.shape[0]):
-            negative_indices_per_batch.append(negative_indices[1][np.where(negative_indices[0] == i)])
-            positive_indices_per_batch.append(positive_indices[1][np.where(positive_indices[0] == i)])
+    def __init__(self):
+        self.baselist = []
+        self.added_labels = []
+        self.children = []
+
+    def add_child(self, label):
+        child = TreeOfLists()
+        child.baselist = self.baselist.copy()
+        child.added_labels = self.added_labels.copy()
+        child.added_labels.append(label)
+        self.children.append(child)
+
+    def get_list(self):
+        total_list = self.baselist.copy() + self.added_labels.copy()
+        return total_list
 
 
-            current_positive_indices = positive_indices_per_batch[i]
-            current_negative_indices = negative_indices_per_batch[i]
+def look_ahead_easiest_n_labels(normalized_confidences, instance_correlation_matrix, number_of_labels, gamma, number_of_branches, branch_depth):
 
-            attack_correlations = np.zeros(flipup_correlations.shape)
-            attack_correlations[current_positive_indices] = flipup_correlations[current_positive_indices]
-            attack_correlations[current_negative_indices] = flipdown_correlations[current_negative_indices]
+    confidence_rankings = np.argsort(np.abs(normalized_confidences))
+    root_label = confidence_rankings[len(confidence_rankings) - 1].item()
 
-            
-            normalized_confidences = np.abs(outputs[i]) / np.max(np.abs(outputs[i]))
-            normalized_confidences = np.transpose(np.squeeze(normalized_confidences))
-            confidence_rankings = np.argsort(np.abs(outputs[i]))
+    # Initialize the label set with easiest/closest label
+    base_label_set = [root_label]
 
-            # Greedy correlated label select
-            root_label = confidence_rankings[len(confidence_rankings) - 1].item()
+    # We iteratively add a label until pre-specified length is reached
+    for j in range(number_of_labels-1):
 
-            label_set = [root_label]
+        # We have 'number_of_branches' branches to explore up until depth 'branch_depth' for the best option
+        root = TreeOfLists()
+        root.baselist = base_label_set.copy()
+        parents = [root]
+        children = []
+        depth = min(branch_depth, number_of_labels - len(base_label_set))
 
-            for j in range(number_of_labels-1):
+        # Look mutiple levels ahead and pick the best option to add to the list
+        for d in range(depth):
 
-                correlation_to_set = attack_correlations[:, label_set].sum(axis=1)
-                correlation_from_set = attack_correlations[label_set, :].sum(axis=0)
+            for parent in parents:
+
+                current_label_set = parent.get_list()
+
+                ## COMPUTE THE CURRENT LABEL RANKINGS FOR THIS PARENT
+
+                # We compute the correlations from and to the set by using the correlation matrix, we then select the best option 
+                correlation_to_set = instance_correlation_matrix[:, current_label_set].sum(axis=1)
+                correlation_from_set = instance_correlation_matrix[current_label_set, :].sum(axis=0)
                 correlation_factors = correlation_to_set + correlation_from_set
                 normalized_correlation_factors = correlation_factors / np.max(correlation_factors)
+
+                # gamma determines the priority distribution between label confidence and correlation
                 factors = gamma * normalized_correlation_factors + (1-gamma) * normalized_confidences
                 ranking = np.argsort(factors)
-                updated_ranking = [x for x in ranking if x not in label_set]
-                label_set.append(updated_ranking[len(updated_ranking)-1])
+                updated_ranking = [x for x in ranking if x not in current_label_set]
 
-        
-            weights[i, label_set] = 1
-        return weights
+                ## FOR EACH BRANCH ADD A TOP LABEL FROM THE RANKING
+                for b in range(number_of_branches):
+                    added_label = updated_ranking[len(updated_ranking)-1-b]
+                    parent.add_child(added_label)
+
+                children.extend(parent.children)
+
+            parents = children
+            children = []
+
+        max_obj_value = 0
+        best_option = None
+        for p in parents:
+            obj_value = objective_function(p.get_list(), instance_correlation_matrix, normalized_confidences, gamma)
+            if obj_value > max_obj_value:
+                max_obj_value = obj_value
+                best_option = p
+
+        base_label_set.append(best_option.added_labels[0])
+ 
+    print(base_label_set)
+    return base_label_set
 
 
-def correlation_mi_fgsm(model, images, flipup_correlations, flipdown_correlations, gamma, number_of_labels, random=False, device='cuda'):
+def objective_function(label_set, instance_correlation_matrix, normalized_confidences, gamma):
+    correlation_score = 0
+    for label in label_set:
+        correlation_score = correlation_score + instance_correlation_matrix[label, label_set].sum()
+    confidence_score = normalized_confidences[label_set].sum()
+
+    return gamma * correlation_score + (1-gamma) * confidence_score
+
+
+def correlation_mi_fgsm(model, images, flipup_correlations, flipdown_correlations, gamma, number_of_labels, number_of_branches, branch_depth, random=False, device='cuda'):
 
     # put tensors on the GPU
     images = images.to(device).detach()
@@ -241,7 +356,7 @@ def correlation_mi_fgsm(model, images, flipup_correlations, flipdown_correlation
             weights = torch.zeros(target.shape).to(device)
             weights[:, np.random.permutation(target.shape[1])[0:number_of_labels]] = 1
         else:
-            weights = get_weights_from_correlations(flipup_correlations, flipup_correlations, original_output, gamma, number_of_labels, target).to(device)
+            weights = get_weights_from_correlations(flipup_correlations, flipup_correlations, target, original_output, number_of_labels, gamma, number_of_branches, branch_depth,).to(device)
     
     L = torch.nn.BCELoss(weight=weights)
 
@@ -280,7 +395,6 @@ def correlation_mi_fgsm(model, images, flipup_correlations, flipdown_correlation
                     epsilon_values[i] = iters * alpha
             if flips.sum() >= target.shape[0] * number_of_labels:
                 done = True
-
         iters = iters + 1
         if iters > 100:
             done = True
