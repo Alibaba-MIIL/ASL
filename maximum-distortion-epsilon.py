@@ -25,13 +25,13 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # USE GPU
 parser = argparse.ArgumentParser()
 
 # MSCOCO 2014
-# parser.add_argument('data', metavar='DIR', help='path to dataset', default='coco')
-# parser.add_argument('attack_type', type=str, default='pgd')
-# parser.add_argument('--model_path', type=str, default='./models/tresnetl-asl-mscoco-epoch80')
-# parser.add_argument('--model_name', type=str, default='tresnet_l')
-# parser.add_argument('--num-classes', default=80)
-# parser.add_argument('--dataset_type', type=str, default='MSCOCO_2014')
-# parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
+parser.add_argument('data', metavar='DIR', help='path to dataset', default='coco')
+parser.add_argument('attack_type', type=str, default='pgd')
+parser.add_argument('--model_path', type=str, default='./models/tresnetl-asl-mscoco-epoch80')
+parser.add_argument('--model_name', type=str, default='tresnet_l')
+parser.add_argument('--num-classes', default=80)
+parser.add_argument('--dataset_type', type=str, default='MSCOCO_2014')
+parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
 
 # PASCAL VOC2007
 # parser.add_argument('data', metavar='DIR', help='path to dataset', default='../VOC2007')
@@ -43,13 +43,13 @@ parser = argparse.ArgumentParser()
 # parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
 
 # # NUS_WIDE
-parser.add_argument('data', metavar='DIR', help='path to dataset', default='../NUS_WIDE')
-parser.add_argument('attack_type', type=str, default='pgd')
-parser.add_argument('--model_path', type=str, default='./models/tresnetl-asl-nuswide-epoch80')
-parser.add_argument('--model_name', type=str, default='tresnet_l')
-parser.add_argument('--num-classes', default=81)
-parser.add_argument('--dataset_type', type=str, default='NUS_WIDE')
-parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
+# parser.add_argument('data', metavar='DIR', help='path to dataset', default='../NUS_WIDE')
+# parser.add_argument('attack_type', type=str, default='pgd')
+# parser.add_argument('--model_path', type=str, default='./models/tresnetl-asl-nuswide-epoch80')
+# parser.add_argument('--model_name', type=str, default='tresnet_l')
+# parser.add_argument('--num-classes', default=81)
+# parser.add_argument('--dataset_type', type=str, default='NUS_WIDE')
+# parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
 
 
 # IMPORTANT PARAMETERS!
@@ -119,12 +119,12 @@ data_loader = torch.utils.data.DataLoader(
 
 ################ EXPERIMENT VARIABLES ########################
 
-NUMBER_OF_SAMPLES = 20
+NUMBER_OF_SAMPLES = 100
 min_eps = 1/256
-# EPSILON_VALUES = [min_eps, 2*min_eps, 4*min_eps, 6*min_eps, 8*min_eps, 10*min_eps]
-EPSILON_VALUES = [12*min_eps, 24*min_eps, 36*min_eps, 48*min_eps]
+EPSILON_VALUES = [min_eps, 2*min_eps, 4*min_eps, 6*min_eps, 8*min_eps, 10*min_eps]
+# EPSILON_VALUES = [12*min_eps, 24*min_eps, 36*min_eps, 48*min_eps]
 # EPSILON_VALUES = [24*min_eps]
-flipped_labels = np.zeros((4, len(EPSILON_VALUES)))
+flipped_labels = np.zeros((2, len(EPSILON_VALUES), NUMBER_OF_SAMPLES))
 
 #############################  EXPERIMENT LOOP #############################
 
@@ -173,28 +173,28 @@ for i, (tensor_batch, labels) in enumerate(data_loader):
             # pred_after_attack4 = (torch.sigmoid(model(adversarials4)) > args.th).int()
             # pred_after_attack5 = (torch.sigmoid(model(adversarials5)) > args.th).int()
             # pred_after_attack6 = (torch.sigmoid(model(adversarials6)) > args.th).int()
-            flipped_labels[0, epsilon_index] += torch.sum(torch.logical_xor(pred, pred_after_attack0)).item() / (NUMBER_OF_SAMPLES)
-            flipped_labels[1, epsilon_index] += torch.sum(torch.logical_xor(pred, pred_after_attack1)).item() / (NUMBER_OF_SAMPLES)
-            # flipped_labels[2, epsilon_index] += torch.sum(torch.logical_xor(pred, pred_after_attack2)).item() / (NUMBER_OF_SAMPLES)
-            # flipped_labels[3, epsilon_index] += torch.sum(torch.logical_xor(pred, pred_after_attack3)).item() / (NUMBER_OF_SAMPLES)
-            # flipped_labels[4, epsilon_index] += torch.sum(torch.logical_xor(pred, pred_after_attack4)).item() / (NUMBER_OF_SAMPLES)
-            # flipped_labels[5, epsilon_index] += torch.sum(torch.logical_xor(pred, pred_after_attack5)).item() / (NUMBER_OF_SAMPLES)
-            # flipped_labels[6, epsilon_index] += torch.sum(torch.logical_xor(pred, pred_after_attack6)).item() / (NUMBER_OF_SAMPLES)
+            flipped_labels[0, epsilon_index, i*args.batch_size:(i+1)*args.batch_size] = torch.sum(torch.logical_xor(pred, pred_after_attack0), dim=1).cpu().numpy()
+            flipped_labels[1, epsilon_index, i*args.batch_size:(i+1)*args.batch_size] = torch.sum(torch.logical_xor(pred, pred_after_attack1), dim=1).cpu().numpy()
+            # flipped_labels[2, epsilon_index, i*args.batch_size:(i+1)*args.batch_size] = torch.sum(torch.logical_xor(pred, pred_after_attack2)).item() / (NUMBER_OF_SAMPLES)
+            # flipped_labels[3, epsilon_index, i*args.batch_size:(i+1)*args.batch_size] = torch.sum(torch.logical_xor(pred, pred_after_attack3)).item() / (NUMBER_OF_SAMPLES)
+            # flipped_labels[4, epsilon_index], i*args.batch_size:(i+1)*args.batch_size] = torch.sum(torch.logical_xor(pred, pred_after_attack4)).item() / (NUMBER_OF_SAMPLES)
+            # flipped_labels[5, epsilon_index, i*args.batch_size:(i+1)*args.batch_size] = torch.sum(torch.logical_xor(pred, pred_after_attack5)).item() / (NUMBER_OF_SAMPLES)
+            # flipped_labels[6, epsilon_index, i*args.batch_size:(i+1)*args.batch_size] = torch.sum(torch.logical_xor(pred, pred_after_attack6)).item() / (NUMBER_OF_SAMPLES)
 
     sample_count += args.batch_size
     print('batch number:',i)
 
-flipped_labels = np.insert(flipped_labels, 0, 0, axis=1)
-EPSILON_VALUES.insert(0,0)
+# flipped_labels = np.insert(flipped_labels, 0, 0, axis=1)
+# EPSILON_VALUES.insert(0,0)
 
 print(flipped_labels)
-np.save('experiment_results/maxdist_epsilon_bce_vs_sigmoid-{0}-{1}'.format(args.model_type, args.dataset_type),flipped_labels)
+np.save('experiment_results/maxdist_epsilon-bce-vs-linear-{0}-{1}'.format(args.model_type, args.dataset_type),flipped_labels)
 
 
-# #############################  PLOT CODE #############################
+##############################  PLOT CODE #############################
 
-plt.plot(EPSILON_VALUES, flipped_labels[0, :], label='BCELoss')
-plt.plot(EPSILON_VALUES, flipped_labels[1, :], label='Linear')
+# plt.plot(EPSILON_VALUES, flipped_labels[0, :], label='BCELoss')
+# plt.plot(EPSILON_VALUES, flipped_labels[1, :], label='Linear')
 # plt.plot(EPSILON_VALUES, flipped_labels[2, :], label='Smart')
 # plt.plot(EPSILON_VALUES, flipped_labels[3, :], label='Hinge')
 # plt.plot(EPSILON_VALUES, flipped_labels[4, :], label='a = {0}'.format(16))

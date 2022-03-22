@@ -10,13 +10,14 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
-from attacks import pgd, fgsm, mi_fgsm, get_weights, correlation_mi_fgsm
-from mlc_attack_losses import SigmoidLoss, HybridLoss, HingeLoss, LinearLoss, MSELoss
+from attacks import pgd, fgsm, mi_fgsm, get_weights
+from mlc_attack_losses import SigmoidLoss, HybridLoss, HingeLoss, LinearLoss, MSELoss, SmartLoss
 from sklearn.metrics import auc
 from src.helper_functions.helper_functions import mAP, CocoDetection, CocoDetectionFiltered, CutoutPIL, ModelEma, add_weight_decay
 from src.helper_functions.voc import Voc2007Classification
 from create_model import create_q2l_model
 from src.helper_functions.nuswide_asl import NusWideFiltered
+import seaborn as sns
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # USE GPU
 
@@ -26,7 +27,6 @@ parser = argparse.ArgumentParser()
 
 # MSCOCO 2014
 parser.add_argument('data', metavar='DIR', help='path to dataset', default='coco')
-parser.add_argument('attack_type', type=str, default='pgd')
 parser.add_argument('--model_path', type=str, default='./models/tresnetl-asl-mscoco-epoch80')
 parser.add_argument('--model_name', type=str, default='tresnet_l')
 parser.add_argument('--num-classes', default=80)
@@ -35,16 +35,14 @@ parser.add_argument('--image-size', default=448, type=int, metavar='N', help='in
 
 # PASCAL VOC2007
 # parser.add_argument('data', metavar='DIR', help='path to dataset', default='../VOC2007')
-# parser.add_argument('attack_type', type=str, default='PGD')
 # parser.add_argument('--model-path', default='./models/tresnetxl-asl-voc-epoch80', type=str)
 # parser.add_argument('--model_name', type=str, default='tresnet_xl')
 # parser.add_argument('--num-classes', default=20)
 # parser.add_argument('--dataset_type', type=str, default='PASCAL_VOC2007')
 # parser.add_argument('--image-size', default=448, type=int, metavar='N', help='input image size (default: 448)')
 
-# # # NUS_WIDE
+# # NUS_WIDE
 # parser.add_argument('data', metavar='DIR', help='path to dataset', default='../NUS_WIDE')
-# parser.add_argument('attack_type', type=str, default='pgd')
 # parser.add_argument('--model_path', type=str, default='./models/tresnetl-asl-nuswide-epoch80')
 # parser.add_argument('--model_name', type=str, default='tresnet_l')
 # parser.add_argument('--num-classes', default=81)
@@ -114,19 +112,21 @@ data_loader = torch.utils.data.DataLoader(
     num_workers=args.workers, pin_memory=True)
 
 
-flipup_correlations = np.load('experiment_results/flipup-correlations-{0}-{1}-{2}.npy'.format(args.dataset_type, args.attack_type, args.model_type))[1]
-flipdown_correlations = np.load('experiment_results/flipdown-correlations-{0}-{1}-{2}.npy'.format(args.dataset_type, args.attack_type, args.model_type))[1]
-
+# flipup_rankings = torch.tensor(np.load('experiment_results/{0}-{1}-flipup.npy'.format(args.model_type, args.dataset_type))).to(device)
+# flipdown_rankings = torch.tensor(np.load('experiment_results/{0}-{1}-flipdown.npy'.format(args.model_type, args.dataset_type))).to(device)
 
 ################ EXPERIMENT VARIABLES ########################
 
 NUMBER_OF_SAMPLES = 100
-correlation_results = [[[] for x in range(6)] for i in range(4)]
-
+min_eps = 1/256
+epsilon = 0.004
 
 #############################  EXPERIMENT LOOP #############################
 
 sample_count = 0
+target_label = 78
+
+patch = torch.zeros((448,448))
 
 # DATASET LOOP
 for i, (tensor_batch, labels) in enumerate(data_loader):
@@ -135,34 +135,23 @@ for i, (tensor_batch, labels) in enumerate(data_loader):
     if sample_count >= NUMBER_OF_SAMPLES:
         break
 
-    for index, number_of_attacked_labels in enumerate([5]):
+    # Do the inference
+    with torch.no_grad():
+        pred = torch.sigmoid(model(tensor_batch)) > args.th
+        target = torch.clone(pred).detach()
+        target = ~target
+        weights = torch.zeros(target.shape)
+        weights[:, target_label] = 1
 
-        # Do the inference
-        with torch.no_grad():
-            pred = torch.sigmoid(model(tensor_batch)) > args.th
-            target = torch.clone(pred).detach()
-            target = ~target
-
-        # perform the attack
-        if args.attack_type == 'PGD':
-            pass
-        elif args.attack_type == 'FGSM':
-            pass
-        elif args.attack_type == 'MI-FGSM':
-            correlation_results[index][0].extend(correlation_mi_fgsm(model, tensor_batch.detach(), flipup_correlations, flipdown_correlations, 0, number_of_attacked_labels,1,1,  device="cuda"))
-            correlation_results[index][1].extend(correlation_mi_fgsm(model, tensor_batch.detach(), flipup_correlations, flipdown_correlations, 1, number_of_attacked_labels,1,1,  device="cuda"))
-            # correlation_results[index][2].extend(correlation_mi_fgsm(model, tensor_batch.detach(), flipup_correlations, flipdown_correlations, 0.5, number_of_attacked_labels,  device="cuda"))
-            # correlation_results[index][3].extend(correlation_mi_fgsm(model, tensor_batch.detach(), flipup_correlations, flipdown_correlations, 0.75, number_of_attacked_labels,  device="cuda"))
-            correlation_results[index][4].extend(correlation_mi_fgsm(model, tensor_batch.detach(), flipup_correlations, flipdown_correlations, 1, number_of_attacked_labels, 5, 5, device="cuda"))
-            # correlation_results[index][5].extend(correlation_mi_fgsm(model, tensor_batch.detach(), flipup_correlations, flipdown_correlations, 2, number_of_attacked_labels, random=True, device="cuda"))
-        else:
-            print("Unknown attack")
-            break
+    adversarials = mi_fgsm(model, tensor_batch.detach(), target, loss_function=torch.nn.BCELoss(weight=weights.to(device)), eps=epsilon, device="cuda").detach()
+    with torch.no_grad():
+        difference = torch.sum(torch.sum(torch.abs(tensor_batch - adversarials), dim=1),dim=0).cpu()
+        patch += difference
 
     sample_count += args.batch_size
     print('batch number:',i)
 
-for l in correlation_results:
-    print([np.mean(x) for x in l])
-    # print([(np.mean(x), np.std(x)) for x in l])
-# print(np.mean(np.array(correlation_results), axis=1))
+sns.heatmap(patch)
+plt.show()
+
+

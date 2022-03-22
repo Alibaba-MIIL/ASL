@@ -41,10 +41,6 @@ def get_weights(outputs, number_of_attacked_labels, target_vector, random=False)
         weights[:, rankings[:, 0:number_of_attacked_labels]] = 1
     return weights
 
-def top_n_label(correlation_matrix):
-    pass
-
-
 def pgd(model, images, target, loss_function=torch.nn.BCELoss(), eps=0.3, alpha=2/255, iters=10, device='cuda'):
 
     loss = loss_function
@@ -314,6 +310,7 @@ def look_ahead_easiest_n_labels(normalized_confidences, instance_correlation_mat
             parents = children
             children = []
 
+        # find the best leaf node and use its parent from the first sub-root level as a next added label
         max_obj_value = 0
         best_option = None
         for p in parents:
@@ -324,7 +321,6 @@ def look_ahead_easiest_n_labels(normalized_confidences, instance_correlation_mat
 
         base_label_set.append(best_option.added_labels[0])
  
-    print(base_label_set)
     return base_label_set
 
 
