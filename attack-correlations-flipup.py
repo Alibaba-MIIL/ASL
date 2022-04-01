@@ -157,7 +157,7 @@ for target_label in TARGET_LABELS:
                 print("Unknown attack")
 
             with torch.no_grad():
-                correlations[epsilon_index, target_label] += (torch.sigmoid(model(adversarials)) - torch.sigmoid(model(tensor_batch))).sum(dim=0).cpu()
+                correlations[epsilon_index, target_label] += (1 / NUMBER_OF_SAMPLES) * (torch.sigmoid(model(adversarials)) - torch.sigmoid(model(tensor_batch))).sum(dim=0).cpu()
         
         sample_count += args.batch_size
 

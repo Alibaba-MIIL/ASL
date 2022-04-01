@@ -81,34 +81,38 @@ class AttackModel():
 
     def mla_lp(self, params):
         exec_times = []
-        _, A_pos, A_neg, B_pos, B_neg = get_target_set(self.y, self.y_target)
-        A = A_pos + A_neg
 
-        tmp_folder_path = os.path.join(os.path.dirname(self.adv_save_x), 'tmp/')
-        new_folder(tmp_folder_path)
-        begin_step = self.adv_begin_step
-        batch_size = self.adv_batch_size
-        step = math.ceil(len(self.y_target) / batch_size)
+        
         print(params)
-        nsamples = 1
+        nsamples = 100
         for i, (x, target) in enumerate(self.data_loader):
 
-            torch.save(x, 'clean.pt')
+            # Check sample limit
             if i >= nsamples:
                 break
-            start_time = datetime.timestamp(datetime.now())
-            print('{} generator data, length is {}'.format(i, len(x)))
-            if i < begin_step:
-                continue
-            params['batch_size'] = len(target)
-            begin = i * batch_size
-            end = begin + len(target)
-            params['y_target'] = self.y_target[begin:end]
 
-            adv = self.attack_model.generate_np(x.cpu().numpy(), A[begin:end], **params)
-            tmp_file_path = os.path.join(tmp_folder_path, os.path.basename(self.adv_save_x) + '_' + str(i) + '.npy')
-            np.save(tmp_file_path, adv)
-            torch.save(x, 'mla_lp_samples/adv{0}.pt'.format(i))
+            # Keep track of time
+            start_time = datetime.timestamp(datetime.now())
+
+            params['batch_size'] = len(target)
+            
+            output = 2 * (torch.sigmoid(self.model(x.cuda())) > 0.5).int().detach().cpu().numpy() - 1
+            t =  -output.copy()
+         
+            params['y_target'] = t
+
+            # print(output)
+            # print(params['y_target'])
+
+            _, A_pos, A_neg, B_pos, B_neg = get_target_set(output, params['y_target'])
+            A = A_pos + A_neg
+
+            np.save(self.adv_save_x + 'mla_lp_' + 'clean{0}'.format(i), x)
+            print(A)
+            adv = self.attack_model.generate_np(x.cpu().numpy(), A, **params)
+            np.save(self.adv_save_x + 'mla_lp_' + 'adv{0}'.format(i), adv)
+
+            # check computation time
             end_time = datetime.timestamp(datetime.now())
             time_diff = end_time - start_time
             exec_times.append(time_diff)
@@ -116,23 +120,9 @@ class AttackModel():
         print(np.std(exec_times))
         print(np.mean(exec_times))
 
-        # adv_list = []
-        #
-        # for i in range(begin_step, step):
-        #     tmp_file_path = os.path.join(tmp_folder_path, os.path.basename(self.adv_save_x) + '_' + str(i) + '.npy')
-        #     tmp_file = np.load(tmp_file_path)
-        #     adv_list.extend(tmp_file)
-        # np.save(self.adv_save_x, np.asarray(adv_list))
 
     def ml_cw(self, params):
         exec_times = []
-        _, A_pos, A_neg, B_pos, B_neg = get_target_set(self.y, self.y_target)
-
-        tmp_folder_path = os.path.join(os.path.dirname(self.adv_save_x), 'tmp/')
-        new_folder(tmp_folder_path)
-        begin_step = self.adv_begin_step
-        batch_size = self.adv_batch_size
-        step = math.ceil(len(self.y_target) / batch_size)
         print(params)
 
         nsamples = 100
@@ -141,21 +131,21 @@ class AttackModel():
                 break
 
 
-
+            # TIME
             start_time = datetime.timestamp(datetime.now())
 
-            print('{} generator data, length is {}'.format(i, len(x[0])))
-            if i < begin_step:
-                continue
             params['batch_size'] = len(target)
-            begin = i * batch_size
-            end = begin + len(target)
-            params['y_target'] = self.y_target[begin:end]
+            output = 2 * (torch.sigmoid(self.model(x.cuda())) > 0.5).int().detach().cpu().numpy() - 1
+            params['y_target'] = -output
 
-            adv = self.attack_model.generate_np(x.cpu().numpy(), **params)
-            tmp_file_path = os.path.join(tmp_folder_path, os.path.basename(self.adv_save_x) + '_' + str(i) + '.npy')
-            np.save(tmp_file_path, adv)
+            np.save(self.adv_save_x + 'ml_cw_' + 'clean{0}'.format(i), x)
 
+            adv = self.attack_model.generate_np(x.cpu().numpy(), **params)            
+
+            # Save the adversarial
+            np.save(self.adv_save_x + 'ml_cw2_' + 'adv{0}'.format(i), adv)
+
+            # TIME
             end_time = datetime.timestamp(datetime.now())
             time_diff = end_time - start_time
             print(time_diff)
@@ -240,36 +230,33 @@ class AttackModel():
         # np.save(self.adv_save_x, np.asarray(adv_list))
 
     def ml_deepfool(self, params):
-        _, A_pos, A_neg, B_pos, B_neg = get_target_set(self.y, self.y_target)
-        A = A_pos + A_neg
+        
+        for i, (x, target) in enumerate(self.data_loader):
+            
 
-        tmp_folder_path = os.path.join(os.path.dirname(self.adv_save_x), 'tmp/')
-        new_folder(tmp_folder_path)
-        begin_step = self.adv_begin_step
-        batch_size = self.adv_batch_size
-        step = math.ceil(len(self.y_target) / batch_size)
-        print(params)
+            # TIME
+            start_time = datetime.timestamp(datetime.now())
 
-        for i, (input, target) in enumerate(self.data_loader):
-            print('{} generator data, length is {}'.format(i, len(input[0])))
-            if i < begin_step:
-                continue
             params['batch_size'] = len(target)
-            begin = i * batch_size
-            end = begin + len(target)
-            params['y_target'] = self.y_target[begin:end]
+            output = 2 * (torch.sigmoid(self.model(x.cuda())) > 0.5).int().detach().cpu().numpy() - 1
+            params['y_target'] = -output.copy()
 
-            adv = self.attack_model.generate_np(input[0].cpu().numpy(), A[begin:end], **params)
-            tmp_file_path = os.path.join(tmp_folder_path, os.path.basename(self.adv_save_x) + '_' + str(i) + '.npy')
-            np.save(tmp_file_path, adv)
+            _, A_pos, A_neg, B_pos, B_neg = get_target_set(output, params['y_target'])
+            A = 1 - (A_pos + A_neg)
 
-        # adv_list = []
-        #
-        # for i in range(begin_step, step):
-        #     tmp_file_path = os.path.join(tmp_folder_path, os.path.basename(self.adv_save_x) + '_' + str(i) + '.npy')
-        #     tmp_file = np.load(tmp_file_path)
-        #     adv_list.extend(tmp_file)
-        # np.save(self.adv_save_x, np.asarray(adv_list))
+            np.save(self.adv_save_x + 'ml_df_' + 'clean{0}'.format(i), x)
+
+            adv = self.attack_model.generate_np(x.cpu().numpy(), A, **params)
+            
+            # Save the adversarial
+            np.save(self.adv_save_x + 'ml_df_' + 'adv{0}'.format(i), adv)
+
+            # TIME
+            end_time = datetime.timestamp(datetime.now())
+            time_diff = end_time - start_time
+            print(time_diff)
+            exec_times.append(time_diff)
+
 
 def new_folder(file_path):
     folder_path = os.path.dirname(file_path)

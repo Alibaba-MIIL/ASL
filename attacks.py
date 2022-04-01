@@ -264,14 +264,14 @@ class TreeOfLists():
 
 def look_ahead_easiest_n_labels(normalized_confidences, instance_correlation_matrix, number_of_labels, gamma, number_of_branches, branch_depth):
 
-    confidence_rankings = np.argsort(np.abs(normalized_confidences))
+    confidence_rankings = np.argsort(normalized_confidences)
     root_label = confidence_rankings[len(confidence_rankings) - 1].item()
 
     # Initialize the label set with easiest/closest label
     base_label_set = [root_label]
 
     # We iteratively add a label until pre-specified length is reached
-    for j in range(number_of_labels-1):
+    for l in range(number_of_labels-1):
 
         # We have 'number_of_branches' branches to explore up until depth 'branch_depth' for the best option
         root = TreeOfLists()
@@ -296,8 +296,8 @@ def look_ahead_easiest_n_labels(normalized_confidences, instance_correlation_mat
                 normalized_correlation_factors = correlation_factors / np.max(correlation_factors)
 
                 # gamma determines the priority distribution between label confidence and correlation
-                factors = gamma * normalized_correlation_factors + (1-gamma) * normalized_confidences
-                ranking = np.argsort(factors)
+                scores = gamma * normalized_correlation_factors + (1-gamma) * normalized_confidences
+                ranking = np.argsort(scores)
                 updated_ranking = [x for x in ranking if x not in current_label_set]
 
                 ## FOR EACH BRANCH ADD A TOP LABEL FROM THE RANKING

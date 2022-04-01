@@ -136,11 +136,10 @@ def gen_adv_file(model, target_type, adv_file_path):
     y = []
     test_loader = tqdm(test_loader, desc='Test')
     with torch.no_grad():
-        nsamples = 1
+        nsamples = 100
         for i, (x, target) in enumerate(test_loader):
             if i >= nsamples:
                 break
-            torch.save(x, "clean/clean{0}".format(i))
             if use_gpu:
                 x = x.cuda()
             o = model(x).cpu().numpy()
@@ -173,135 +172,135 @@ def gen_adv_file(model, target_type, adv_file_path):
 
     # save target y and ground-truth y to prepare attack
     # value is {-1,1}
-    np.save('../adv_save/mlgcn/voc2007/y_target.npy', y_target)
-    np.save('../adv_save/mlgcn/voc2007/y.npy', y)
+    np.save('../adv_save/{0}/{1}/y_target.npy'.format('q2l',args.dataset_type), y_target)
+    np.save('../adv_save/{0}/{1}/y.npy'.format('q2l',args.dataset_type), y)
 
-def evaluate_model(model):
-    tqdm.monitor_interval = 0
+# def evaluate_model(model):
+#     tqdm.monitor_interval = 0
 
-    instances_path = os.path.join(args.data, 'annotations/instances_val2014.json')
-    data_path = '{0}/val2014'.format(args.data)
+#     instances_path = os.path.join(args.data, 'annotations/instances_val2014.json')
+#     data_path = '{0}/val2014'.format(args.data)
 
-    dataset = CocoDetectionFiltered(data_path,
-                                instances_path,
-                                transforms.Compose([
-                                    transforms.Resize((args.image_size, args.image_size)),
-                                    transforms.ToTensor(),
-                                    # normalize, # no need, toTensor does normalization
-                                ]))
+#     dataset = CocoDetectionFiltered(data_path,
+#                                 instances_path,
+#                                 transforms.Compose([
+#                                     transforms.Resize((args.image_size, args.image_size)),
+#                                     transforms.ToTensor(),
+#                                     # normalize, # no need, toTensor does normalization
+#                                 ]))
 
-    # Pytorch Data loader
-    test_loader = torch.utils.data.DataLoader(
-        dataset, batch_size=args.batch_size, shuffle=True,
-        num_workers=args.workers, pin_memory=True)
+#     # Pytorch Data loader
+#     test_loader = torch.utils.data.DataLoader(
+#         dataset, batch_size=args.batch_size, shuffle=True,
+#         num_workers=args.workers, pin_memory=True)
 
-    output = []
-    y = []
-    test_loader = tqdm(test_loader, desc='Test')
-    with torch.no_grad():
-        for i, (input, target) in enumerate(test_loader):
-            x = input[0]
-            if use_gpu:
-                x = x.cuda()
-            o = model(x).cpu().numpy()
-            output.extend(o)
-            y.extend(target.cpu().numpy())
-        output = np.asarray(output)
-        y = np.asarray(y)
+#     output = []
+#     y = []
+#     test_loader = tqdm(test_loader, desc='Test')
+#     with torch.no_grad():
+#         for i, (input, target) in enumerate(test_loader):
+#             x = input[0]
+#             if use_gpu:
+#                 x = x.cuda()
+#             o = model(x).cpu().numpy()
+#             output.extend(o)
+#             y.extend(target.cpu().numpy())
+#         output = np.asarray(output)
+#         y = np.asarray(y)
 
-    pred = (output >= 0.5) + 0
-    y[y == -1] = 0
+#     pred = (output >= 0.5) + 0
+#     y[y == -1] = 0
 
-    from utils import evaluate_metrics
-    metric = evaluate_metrics.evaluate(y, output, pred)
-    print(metric)
+#     from utils import evaluate_metrics
+#     metric = evaluate_metrics.evaluate(y, output, pred)
+#     print(metric)
 
-def evaluate_adv(state):
-    model = state['model']
-    y_target = state['y_target']
+# def evaluate_adv(state):
+#     model = state['model']
+#     y_target = state['y_target']
 
-    adv_folder_path = os.path.join(args.adv_save_x, args.adv_method, 'tmp/')
-    adv_file_list = os.listdir(adv_folder_path)
-    adv_file_list.sort(key=lambda x:int(x[16:-4]))
-    adv = []
-    for f in adv_file_list:
-        adv.extend(np.load(adv_folder_path+f))
-    adv = np.asarray(adv)
-    dl1 = torch.utils.data.DataLoader(adv,
-                                      batch_size=args.batch_size,
-                                      shuffle=False,
-                                      num_workers=args.workers)
+#     adv_folder_path = os.path.join(args.adv_save_x, args.adv_method, 'tmp/')
+#     adv_file_list = os.listdir(adv_folder_path)
+#     adv_file_list.sort(key=lambda x:int(x[16:-4]))
+#     adv = []
+#     for f in adv_file_list:
+#         adv.extend(np.load(adv_folder_path+f))
+#     adv = np.asarray(adv)
+#     dl1 = torch.utils.data.DataLoader(adv,
+#                                       batch_size=args.batch_size,
+#                                       shuffle=False,
+#                                       num_workers=args.workers)
 
-    data_transforms = transforms.Compose([
-        Warp(args.image_size),
-        transforms.ToTensor(),
-    ])
-    adv_dataset = Voc2007Classification(args.data, 'mlgcn_adv', inp_name='../data/voc2007/voc_glove_word2vec.pkl')
-    adv_dataset.transform = data_transforms
-    dl2 = torch.utils.data.DataLoader(adv_dataset,
-                                              batch_size=args.batch_size,
-                                              shuffle=False,
-                                              num_workers=args.workers)
-    dl2 = tqdm(dl2, desc='ADV')
+#     data_transforms = transforms.Compose([
+#         Warp(args.image_size),
+#         transforms.ToTensor(),
+#     ])
+#     adv_dataset = Voc2007Classification(args.data, 'mlgcn_adv', inp_name='../data/voc2007/voc_glove_word2vec.pkl')
+#     adv_dataset.transform = data_transforms
+#     dl2 = torch.utils.data.DataLoader(adv_dataset,
+#                                               batch_size=args.batch_size,
+#                                               shuffle=False,
+#                                               num_workers=args.workers)
+#     dl2 = tqdm(dl2, desc='ADV')
 
-    adv_output = []
-    norm_1 = []
-    norm = []
-    max_r = []
-    mean_r = []
-    rmsd = []
-    with torch.no_grad():
-        for batch_adv_x, batch_test_x in zip(dl1, dl2):
-            if use_gpu:
-                batch_adv_x = batch_adv_x.cuda()
-            adv_output.extend(model(batch_adv_x).cpu().numpy())
-            batch_adv_x = batch_adv_x.cpu().numpy()
-            batch_test_x = batch_test_x[0][0].cpu().numpy()
+#     adv_output = []
+#     norm_1 = []
+#     norm = []
+#     max_r = []
+#     mean_r = []
+#     rmsd = []
+#     with torch.no_grad():
+#         for batch_adv_x, batch_test_x in zip(dl1, dl2):
+#             if use_gpu:
+#                 batch_adv_x = batch_adv_x.cuda()
+#             adv_output.extend(model(batch_adv_x).cpu().numpy())
+#             batch_adv_x = batch_adv_x.cpu().numpy()
+#             batch_test_x = batch_test_x[0][0].cpu().numpy()
 
-            batch_r = (batch_adv_x - batch_test_x)
-            batch_r_255 = ((batch_adv_x / 2 + 0.5) * 255) - ((batch_test_x / 2 + 0.5) * 255)
-            batch_norm = [np.linalg.norm(r.flatten()) for r in batch_r]
-            batch_rmsd = [np.sqrt(np.mean(np.square(r))) for r in batch_r_255]
-            norm.extend(batch_norm)
-            rmsd.extend(batch_rmsd)
-            norm_1.extend(np.sum(np.abs(batch_adv_x - batch_test_x), axis=(1, 2, 3)))
-            max_r.extend(np.max(np.abs(batch_adv_x - batch_test_x), axis=(1, 2, 3)))
-            mean_r.extend(np.mean(np.abs(batch_adv_x - batch_test_x), axis=(1, 2, 3)))
-    adv_output = np.asarray(adv_output)
-    adv_pred = adv_output.copy()
-    adv_pred[adv_pred >= (0.5+0)] = 1
-    adv_pred[adv_pred < (0.5+0)] = -1
-    print(adv_pred.shape)
-    print(y_target.shape)
-    adv_pred_match_target = np.all((adv_pred == y_target), axis=1) + 0
-    attack_fail_idx = np.argwhere(adv_pred_match_target==0).flatten().tolist()
-    attack_fail_idx = np.argwhere(adv_pred_match_target==0).flatten().tolist()
+#             batch_r = (batch_adv_x - batch_test_x)
+#             batch_r_255 = ((batch_adv_x / 2 + 0.5) * 255) - ((batch_test_x / 2 + 0.5) * 255)
+#             batch_norm = [np.linalg.norm(r.flatten()) for r in batch_r]
+#             batch_rmsd = [np.sqrt(np.mean(np.square(r))) for r in batch_r_255]
+#             norm.extend(batch_norm)
+#             rmsd.extend(batch_rmsd)
+#             norm_1.extend(np.sum(np.abs(batch_adv_x - batch_test_x), axis=(1, 2, 3)))
+#             max_r.extend(np.max(np.abs(batch_adv_x - batch_test_x), axis=(1, 2, 3)))
+#             mean_r.extend(np.mean(np.abs(batch_adv_x - batch_test_x), axis=(1, 2, 3)))
+#     adv_output = np.asarray(adv_output)
+#     adv_pred = adv_output.copy()
+#     adv_pred[adv_pred >= (0.5+0)] = 1
+#     adv_pred[adv_pred < (0.5+0)] = -1
+#     print(adv_pred.shape)
+#     print(y_target.shape)
+#     adv_pred_match_target = np.all((adv_pred == y_target), axis=1) + 0
+#     attack_fail_idx = np.argwhere(adv_pred_match_target==0).flatten().tolist()
+#     attack_fail_idx = np.argwhere(adv_pred_match_target==0).flatten().tolist()
 
-    np.save('{}_attack_fail_idx.npy'.format(args.adv_method), attack_fail_idx)
-    norm = np.asarray(norm)
-    max_r = np.asarray(max_r)
-    mean_r = np.asarray(mean_r)
-    rmsd = np.asarray(rmsd)
-    norm = np.delete(norm, attack_fail_idx, axis=0)
-    max_r = np.delete(max_r, attack_fail_idx, axis=0)
-    norm_1 = np.delete(norm_1, attack_fail_idx, axis=0)
-    mean_r = np.delete(mean_r, attack_fail_idx, axis=0)
-    rmsd = np.delete(rmsd, attack_fail_idx, axis=0)
+#     np.save('{}_attack_fail_idx.npy'.format(args.adv_method), attack_fail_idx)
+#     norm = np.asarray(norm)
+#     max_r = np.asarray(max_r)
+#     mean_r = np.asarray(mean_r)
+#     rmsd = np.asarray(rmsd)
+#     norm = np.delete(norm, attack_fail_idx, axis=0)
+#     max_r = np.delete(max_r, attack_fail_idx, axis=0)
+#     norm_1 = np.delete(norm_1, attack_fail_idx, axis=0)
+#     mean_r = np.delete(mean_r, attack_fail_idx, axis=0)
+#     rmsd = np.delete(rmsd, attack_fail_idx, axis=0)
 
-    from utils import evaluate_metrics
-    metrics = dict()
-    y_target[y_target==-1] = 0
-    metrics['ranking_loss'] = evaluate_metrics.label_ranking_loss(y_target, adv_output)
-    metrics['average_precision'] = evaluate_metrics.label_ranking_average_precision_score(y_target, adv_output)
-    metrics['auc'] = evaluate_metrics.roc_auc_score(y_target, adv_output)
-    metrics['attack rate'] = np.sum(adv_pred_match_target) / len(adv_pred_match_target)
-    metrics['norm'] = np.mean(norm)
-    metrics['norm_1'] = np.mean(norm_1)
-    metrics['rmsd'] = np.mean(rmsd)
-    metrics['max_r'] = np.mean(max_r)
-    metrics['mean_r'] = np.mean(mean_r)
-    print()
-    print(metrics)
+#     from utils import evaluate_metrics
+#     metrics = dict()
+#     y_target[y_target==-1] = 0
+#     metrics['ranking_loss'] = evaluate_metrics.label_ranking_loss(y_target, adv_output)
+#     metrics['average_precision'] = evaluate_metrics.label_ranking_average_precision_score(y_target, adv_output)
+#     metrics['auc'] = evaluate_metrics.roc_auc_score(y_target, adv_output)
+#     metrics['attack rate'] = np.sum(adv_pred_match_target) / len(adv_pred_match_target)
+#     metrics['norm'] = np.mean(norm)
+#     metrics['norm_1'] = np.mean(norm_1)
+#     metrics['rmsd'] = np.mean(rmsd)
+#     metrics['max_r'] = np.mean(max_r)
+#     metrics['mean_r'] = np.mean(mean_r)
+#     print()
+#     print(metrics)
 
 def main():
     global args, best_prec1, use_gpu
@@ -314,8 +313,6 @@ def main():
         torch.cuda.manual_seed_all(123)
     np.random.seed(123)
 
-    init_log(os.path.join(args.adv_save_x, args.adv_method, "extreme_case" + '.log'))
-
 
     # define dataset
     num_classes = 80
@@ -327,8 +324,6 @@ def main():
 
     if use_gpu:
         model = model.cuda()
-    if not os.path.exists(args.adv_file_path):
-        gen_adv_file(model, "extreme_case", args.adv_file_path)
    
 
     instances_path = os.path.join(args.data, 'annotations/instances_val2014.json')
@@ -349,17 +344,16 @@ def main():
 
     # load target y and ground-truth y
     # value is {-1,1}
-    y_target = np.load('../adv_save/mlgcn/voc2007/y_target.npy')
-    y = np.load('../adv_save/mlgcn/voc2007/y.npy')
+    
 
     state = {'model': model,
              'data_loader': data_loader,
              'adv_method': args.adv_method,
              'target_type': "extreme_case",
              'adv_batch_size': args.adv_batch_size,
-             'y_target':y_target,
-             'y': y,
-             'adv_save_x': os.path.join(args.adv_save_x, args.adv_method, "extreme_case" + '.npy'),
+             'y_target':0,
+             'y': 0,
+             'adv_save_x': '../adv_save/{0}/{1}/'.format('q2l',args.dataset_type),
              'adv_begin_step': args.adv_begin_step
              }
 

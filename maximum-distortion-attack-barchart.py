@@ -51,12 +51,4 @@ fig.tight_layout()
 
 plt.show()
 
-#############################################################################
-#
-# .. admonition:: References
-#
-#    The use of the following functions, methods, classes and modules is shown
-#    in this example:
-#
-#    - `matplotlib.axes.Axes.bar` / `matplotlib.pyplot.bar`
-#    - `matplotlib.axes.Axes.bar_label` / `matplotlib.pyplot.bar_label`
+

@@ -13,6 +13,7 @@ class MLDeepFool(object):
         self.clip_max = kwargs['clip_max']
         self.clip_min = kwargs['clip_min']
         y_target = kwargs['y_target']
+        print(y_target)
         max_iter = kwargs['max_iter']
         x_shape = x.shape[1:]
         num_features = x_shape[0] * x_shape[1] * x_shape[2]
@@ -36,7 +37,7 @@ class MLDeepFool(object):
         # Initialize the loop variables
         iteration = 0
 
-        output = self.model(x_t).cpu().detach().numpy()
+        output = torch.sigmoid(self.model(x_t)).cpu().detach().numpy()
         current = output.copy()
         current[current>=0.5] = 1
         current[current<0.5] = -1
@@ -102,7 +103,7 @@ class MLDeepFool(object):
                 x_t = x_t.cuda()
 
             Cst_b = np.sum(np.equal(y_target, current) + 0, axis=1)
-            compare_val = self.model(x_t).cpu().detach().numpy()
+            compare_val = torch.sigmoid(self.model(x_t)).cpu().detach().numpy()
             compare_val[compare_val >= 0.5] = 1
             compare_val[compare_val < 0.5] = -1
             Cst_i = np.sum(np.equal(y_target, compare_val) + 0, axis=1)
@@ -141,7 +142,7 @@ def get_jacobian(model, x, noutputs):
     if torch.cuda.is_available():
         x = x.cuda()
     x.requires_grad = True
-    y = model(x)
+    y = torch.sigmoid(model(x))
     retain_graph = True
     for i in range(noutputs):
         if i == noutputs - 1:

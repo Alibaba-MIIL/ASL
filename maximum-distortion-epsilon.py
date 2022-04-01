@@ -121,7 +121,7 @@ data_loader = torch.utils.data.DataLoader(
 
 NUMBER_OF_SAMPLES = 100
 min_eps = 1/256
-EPSILON_VALUES = [min_eps, 2*min_eps, 4*min_eps, 6*min_eps, 8*min_eps, 10*min_eps]
+# EPSILON_VALUES = [min_eps, 2*min_eps, 4*min_eps, 6*min_eps, 8*min_eps, 10*min_eps]
 # EPSILON_VALUES = [12*min_eps, 24*min_eps, 36*min_eps, 48*min_eps]
 # EPSILON_VALUES = [24*min_eps]
 flipped_labels = np.zeros((2, len(EPSILON_VALUES), NUMBER_OF_SAMPLES))

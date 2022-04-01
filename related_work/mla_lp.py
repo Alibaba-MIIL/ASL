@@ -35,7 +35,7 @@ class MLLP(object):
             y_target_t = y_target_t.cuda()
 
         # the probability and prediction of original batch x
-        output = self.model(x_t).cpu().detach().numpy()
+        output = torch.sigmoid(self.model(x_t)).cpu().detach().numpy()
         pred = output.copy()
         pred[pred >= 0.5] = 1
         pred[pred < 0.5] = 0
@@ -78,7 +78,7 @@ class MLLP(object):
             # get jacobian matrix
             # gradients shape [n_label, batch, x_features]
             # output shape [batch, n_label]
-            gradients, output = get_jacobian_loss(self.model, x_t, y_target_t, num_labels)
+            # gradients, output = get_jacobian_loss(self.model, x_t, y_target_t, num_labels)
 
             # gradient_samples shape [batch, n_label, x_features]
             jac_grad, output = get_jacobian_loss(self.model, x_t, y_target_t, num_labels)
@@ -105,11 +105,15 @@ class MLLP(object):
             result = result.reshape((num_instaces, x_shape[0], x_shape[1], x_shape[2]))
             temp_adv_x = np.clip(adv_x + result, a_min=self.clip_min, a_max=self.clip_max)
 
+            print('difference between x and adv', torch.sum(torch.FloatTensor(x) - torch.FloatTensor(temp_adv_x)))
+
             x_t = torch.FloatTensor(temp_adv_x)
             if torch.cuda.is_available():
                 x_t = x_t.cuda()
 
-            temp_adv_output = self.model(x_t).cpu().detach().numpy()
+            temp_adv_output = torch.sigmoid(self.model(x_t)).cpu().detach().numpy()
+
+
 
             for i in range(num_instaces):
                 if i in error_idx:
@@ -118,10 +122,12 @@ class MLLP(object):
                 if temp_adv_output[attack_bool][i] == output[attack_bool][i] and iteration >= 5:
                     msg = 'example    {}  failed to solve'.format(i)
                     logging.info(msg)
+                    print(msg)
                     error_idx.append(i)
                     continue
                 if np.all(result[i] == 0):
                     msg = 'example    {}  failed to solve'.format(i)
+                    print(msg)
                     logging.info(msg)
                     error_idx.append(i)
                     continue
@@ -145,9 +151,12 @@ class MLLP(object):
             for i in range(num_instaces):
                 if i in error_idx:
                     continue
-
+                print('original pred:', pred)
+                print('adv pred:', adv_pred)
+                print('target:', y_target)
                 eq_value_1 = np.sum((adv_pred[i] == y_target[i]) + 0)
                 eq_value_2 = np.sum((best_pred[i] == y_target[i]) + 0)
+                print(eq_value_1, eq_value_2)
                 if eq_value_1 > eq_value_2:
                     best_adv_x[i] = adv_x[i]
                     best_pred[i] = adv_pred[i]
@@ -156,11 +165,12 @@ class MLLP(object):
                                 best_adv_x[i] - x[i]))):
                     best_adv_x[i] = adv_x[i]
                     best_pred[i] = adv_pred[i]
-                elif eq_value_1 < eq_value_2:
-                    adv_x[i] = x[i]
-                    best_adv_x[i] = x[i]
-                    best_pred[i] = pred[i]
+                # elif eq_value_1 < eq_value_2:
+                #     adv_x[i] = x[i]
+                #     best_adv_x[i] = x[i]
+                #     best_pred[i] = pred[i]
             iteration = iteration + 1
+            print(iteration)
 
         return best_adv_x
 
@@ -172,7 +182,7 @@ def get_jacobian_loss(model, x, y_target_t, noutputs):
     if torch.cuda.is_available():
         x = x.cuda()
     x.requires_grad = True
-    y = model(x)
+    y = torch.sigmoid(model(x))
     y = torch.clamp(y, 1e-6, 1 - 1e-6)
     loss = -(y_target_t * torch.log(y) + (1 - y_target_t) * torch.log(1 - y))
 
@@ -238,7 +248,6 @@ def mosek_inner_point_solver(A, output, y_target, threshold_value, r_change):
                 A = np.delete(A, delete_idx, axis=0)
                 delta_loss = np.delete(delta_loss, delete_idx, axis=0)
             rows = A.shape[0]
-
 
             # Set the boundry of all variables
             # boundkey.fr [-inf, +inf]
